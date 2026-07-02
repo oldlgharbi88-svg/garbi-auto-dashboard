@@ -58,6 +58,7 @@ export default function Inventory() {
   });
   const [showModal, setShowModal] = useState<boolean>(false);
   const [formState, setFormState] = useState<InventoryFormState>(defaultFormState);
+  const [saveError, setSaveError] = useState<string>('');
   const [editingCell, setEditingCell] = useState<{ id: number | string; field: EditableField } | null>(null);
   const [editValue, setEditValue] = useState<string>('');
 
@@ -256,6 +257,7 @@ export default function Inventory() {
 
   const handleFormSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setSaveError('');
 
     const newItem: InventoryInsert = {
       name: formState.name.trim(),
@@ -266,14 +268,20 @@ export default function Inventory() {
       quantity: Math.max(0, Math.floor(Number(formState.quantity) || 0))
     };
 
+    console.log('Inventory form submit', newItem);
+
     if (!newItem.name || !newItem.reference) {
+      setSaveError('Name and reference are required.');
       return;
     }
 
-    const { data, error } = await supabase.from('inventory').insert(newItem).select().maybeSingle();
+    const { data, error } = await supabase.from('inventory').insert([newItem]).select().single();
+
+    console.log('Supabase insert result', { data, error });
 
     if (error) {
       console.error('Unable to add inventory item:', error.message);
+      setSaveError(error.message ?? 'Unable to save inventory item.');
       return;
     }
 
