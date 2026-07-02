@@ -3,46 +3,80 @@ import Sidebar from './components/Sidebar';
 import POS from './components/POS';
 import Customers from './components/Customers';
 import Settings from './components/Settings';
-import AdminLogin from './components/AdminLogin';
+import ClientDirectory from './components/ClientDirectory';
+import Inventory from './components/Inventory';
+import InvoicePrint from './components/InvoicePrint';
+import Reports from './components/Reports';
+import AccessModal from './components/AdminLogin';
 
-type ActiveView = 'pos' | 'customers' | 'settings';
+type ActiveView = 'pos' | 'inventory' | 'invoices' | 'clients' | 'customers' | 'settings' | 'reports';
+type Role = 'none' | 'manager' | 'employee';
+
+const canAccess = (view: ActiveView, role: Role): boolean => {
+  if (view === 'pos') {
+    return true;
+  }
+
+  if (role === 'manager') {
+    return true;
+  }
+
+  if (role === 'employee') {
+    return view === 'invoices' || view === 'clients';
+  }
+
+  return false;
+};
+
+const requiresAuth = (view: ActiveView): boolean => view !== 'pos';
 
 export default function App() {
   const [activeView, setActiveView] = useState<ActiveView>('pos');
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
-  const [showAdminLogin, setShowAdminLogin] = useState<boolean>(false);
+  const [currentRole, setCurrentRole] = useState<Role>('none');
+  const [showAccessModal, setShowAccessModal] = useState<boolean>(false);
   const [pendingView, setPendingView] = useState<ActiveView | null>(null);
+  const [accessError, setAccessError] = useState<string>('');
 
-  const handleViewChange = (view: string): void => {
-    if (view === 'customers' || view === 'settings') {
-      if (!isAdmin) {
-        setPendingView(view as ActiveView);
-        setShowAdminLogin(true);
-        return;
-      }
-      setActiveView(view as ActiveView);
+  const handleViewChange = (view: ActiveView): void => {
+    if (requiresAuth(view) && !canAccess(view, currentRole)) {
+      setPendingView(view);
+      setAccessError('');
+      setShowAccessModal(true);
       return;
     }
 
-    if (view === 'pos') {
-      setActiveView('pos');
-    }
+    setActiveView(view);
   };
 
-  const handleAdminSuccess = (): void => {
-    setIsAdmin(true);
-    if (pendingView) {
-      setActiveView(pendingView);
+  const handleAccessSuccess = (role: Role): void => {
+    if (!pendingView) {
+      setShowAccessModal(false);
+      return;
     }
+
+    if (!canAccess(pendingView, role)) {
+      setAccessError('The selected role cannot access this page. Choose the correct role.');
+      return;
+    }
+
+    setCurrentRole(role);
+    setActiveView(pendingView);
     setPendingView(null);
-    setShowAdminLogin(false);
+    setShowAccessModal(false);
   };
 
-  const handleAdminLogout = (): void => {
-    setIsAdmin(false);
+  const handleAccessCancel = (): void => {
+    setPendingView(null);
+    setShowAccessModal(false);
+    setAccessError('');
+  };
+
+  const handleLogout = (): void => {
+    setCurrentRole('none');
     setActiveView('pos');
     setPendingView(null);
-    setShowAdminLogin(false);
+    setShowAccessModal(false);
+    setAccessError('');
   };
 
   return (
@@ -51,6 +85,9 @@ export default function App() {
         <div>
           <p className="text-xs uppercase tracking-[0.35em] text-on-surface-variant">Garbi Auto Logistique</p>
           <h1 className="mt-1 text-xl font-semibold text-on-surface">Ahmad Weld Al-Gharbi Auto Parts</h1>
+          <p className="text-sm text-on-surface-variant">
+            Current role: {currentRole === 'none' ? 'None' : currentRole === 'manager' ? 'Manager (مدير)' : 'Employee (موظف)'}
+          </p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -58,27 +95,33 @@ export default function App() {
             <span className="material-symbols-outlined text-lg">search</span>
             <input className="w-48 bg-transparent outline-none" placeholder="Search tickets" />
           </label>
-          {isAdmin ? (
-            <button type="button" onClick={handleAdminLogout} className="rounded-full border border-outline-variant bg-surface-container-high px-4 py-2 text-sm font-semibold text-on-surface">
-              Admin Logout
-            </button>
-          ) : null}
         </div>
       </header>
 
       <div className="flex pt-20">
         <aside className="fixed left-0 top-20 h-[calc(100vh-5rem)] w-72 border-r border-outline-variant bg-surface-container/95 backdrop-blur-xl">
-          <Sidebar activeView={activeView} setActiveView={handleViewChange} isAdmin={isAdmin} />
+          <Sidebar activeView={activeView} setActiveView={handleViewChange} onLogout={handleLogout} />
         </aside>
 
         <main className="ml-72 flex-1 p-6">
           {activeView === 'pos' ? <POS /> : null}
-          {activeView === 'customers' && isAdmin ? <Customers /> : null}
-          {activeView === 'settings' && isAdmin ? <Settings /> : null}
+          {activeView === 'inventory' ? <Inventory /> : null}
+          {activeView === 'invoices' ? <InvoicePrint /> : null}
+          {activeView === 'clients' ? <ClientDirectory onNavigateToPos={() => setActiveView('pos')} /> : null}
+          {activeView === 'customers' ? <Customers /> : null}
+          {activeView === 'settings' ? <Settings /> : null}
+          {activeView === 'reports' ? <Reports /> : null}
         </main>
       </div>
 
-      {showAdminLogin ? <AdminLogin onSuccess={handleAdminSuccess} onCancel={() => { setShowAdminLogin(false); setPendingView(null); }} /> : null}
+      {showAccessModal && (
+        <AccessModal
+          pendingView={pendingView}
+          onSuccess={handleAccessSuccess}
+          onCancel={handleAccessCancel}
+          error={accessError}
+        />
+      )}
     </div>
   );
 }

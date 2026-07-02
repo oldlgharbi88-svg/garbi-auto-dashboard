@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+type Role = 'manager' | 'employee';
+
 export default function Settings() {
   const [storeName, setStoreName] = useState<string>(() => {
     if (typeof window === 'undefined') {
@@ -19,6 +21,7 @@ export default function Settings() {
     }
     return window.localStorage.getItem('phoneNumber') ?? '+212 5 22 11 22 33';
   });
+  const [selectedRole, setSelectedRole] = useState<Role>('manager');
   const [currentPassword, setCurrentPassword] = useState<string>('');
   const [newPassword, setNewPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
@@ -42,8 +45,15 @@ export default function Settings() {
     }
   }, [phoneNumber]);
 
+  const getStoredPassword = (role: Role): string => {
+    if (typeof window === 'undefined') {
+      return role === 'manager' ? 'admin123' : 'staff123';
+    }
+    return window.localStorage.getItem(`${role}Password`) ?? (role === 'manager' ? 'admin123' : 'staff123');
+  };
+
   const handlePasswordSave = (): void => {
-    const storedPassword = window.localStorage.getItem('adminPassword') ?? 'admin1234';
+    const storedPassword = getStoredPassword(selectedRole);
 
     if (currentPassword !== storedPassword) {
       setMessage('Current password is incorrect.');
@@ -55,8 +65,8 @@ export default function Settings() {
       return;
     }
 
-    window.localStorage.setItem('adminPassword', newPassword);
-    setMessage('Admin password updated.');
+    window.localStorage.setItem(`${selectedRole}Password`, newPassword);
+    setMessage(`${selectedRole === 'manager' ? 'Manager' : 'Employee'} password updated.`);
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
@@ -102,8 +112,30 @@ export default function Settings() {
 
       <div className="rounded-3xl border border-outline-variant bg-surface-container p-6 shadow-2xl shadow-black/20">
         <div className="mb-6">
-          <h2 className="text-xl font-semibold text-on-surface">Change Admin Password</h2>
-          <p className="mt-2 text-sm text-on-surface-variant">The password is stored securely in localStorage.</p>
+          <h2 className="text-xl font-semibold text-on-surface">Change Role Passwords</h2>
+          <p className="mt-2 text-sm text-on-surface-variant">
+            Update the manager or employee password stored in localStorage.
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-[1fr_1fr]">
+          <label className="flex flex-col gap-2 text-sm font-medium text-on-surface-variant">
+            Role
+            <select
+              value={selectedRole}
+              onChange={(event) => setSelectedRole(event.target.value as Role)}
+              className="rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-3 text-on-surface"
+            >
+              <option value="manager">Manager (مدير)</option>
+              <option value="employee">Employee (موظف)</option>
+            </select>
+          </label>
+
+          <div className="rounded-2xl border border-outline-variant bg-surface-container-high p-4 text-sm text-on-surface-variant">
+            <p className="font-semibold text-on-surface">Defaults</p>
+            <p className="mt-2">Manager password: admin123</p>
+            <p>Employee password: staff123</p>
+          </div>
         </div>
 
         <div className="grid gap-4">
@@ -137,10 +169,10 @@ export default function Settings() {
             />
           </label>
 
-          {message ? <p className="text-sm text-error">{message}</p> : null}
+          {message ? <p className="text-sm text-success">{message}</p> : null}
 
           <button type="button" onClick={handlePasswordSave} className="w-fit rounded-full bg-primary px-5 py-3 font-semibold text-on-primary">
-            Save
+            Save Password
           </button>
         </div>
       </div>
