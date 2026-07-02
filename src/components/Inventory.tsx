@@ -1,8 +1,18 @@
 import { useEffect, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
+import { supabase } from '../lib/supabase';
 
 interface InventoryItem {
-  id: number;
+  id: number | string;
+  name: string;
+  reference: string;
+  compatibleCars: string;
+  purchasePrice: number;
+  sellingPrice: number;
+  quantity: number;
+}
+
+interface InventoryInsert {
   name: string;
   reference: string;
   compatibleCars: string;
@@ -32,59 +42,12 @@ const defaultFormState: InventoryFormState = {
   quantity: '1'
 };
 
-const initialItems: InventoryItem[] = [
-  {
-    id: 1,
-    name: 'Battery 12V',
-    reference: 'BAT-12V',
-    compatibleCars: 'Toyota Corolla, Renault Clio',
-    purchasePrice: 320,
-    sellingPrice: 380,
-    quantity: 2
-  },
-  {
-    id: 2,
-    name: 'Brake Pad Kit',
-    reference: 'BRK-SET',
-    compatibleCars: 'Peugeot 208, Ford Focus',
-    purchasePrice: 150,
-    sellingPrice: 210,
-    quantity: 8
-  },
-  {
-    id: 3,
-    name: 'Oil Filter',
-    reference: 'OIL-FLT',
-    purchasePrice: 85,
-    sellingPrice: 110,
-    compatibleCars: 'Volkswagen Golf, Nissan Micra',
-    quantity: 4
-  },
-  {
-    id: 4,
-    name: 'Air Filter',
-    reference: 'AIR-FLT',
-    compatibleCars: 'Hyundai i20, Kia Rio',
-    purchasePrice: 95,
-    sellingPrice: 125,
-    quantity: 1
-  },
-  {
-    id: 5,
-    name: 'Spark Plug Set',
-    reference: 'SPK-SET',
-    compatibleCars: 'BMW 320, Mercedes A-Class',
-    purchasePrice: 60,
-    sellingPrice: 85,
-    quantity: 12
-  }
-];
 
 const inputClasses =
   'bg-surface-container-lowest border border-outline-variant rounded-lg h-touch-target px-4 focus:ring-2 focus:ring-secondary-container';
 
 export default function Inventory() {
-  const [parts, setParts] = useState<InventoryItem[]>(initialItems);
+  const [parts, setParts] = useState<InventoryItem[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [language, setLanguage] = useState<InventoryLanguage>(() => {
     if (typeof window === 'undefined') {
@@ -95,7 +58,7 @@ export default function Inventory() {
   });
   const [showModal, setShowModal] = useState<boolean>(false);
   const [formState, setFormState] = useState<InventoryFormState>(defaultFormState);
-  const [editingCell, setEditingCell] = useState<{ id: number; field: EditableField } | null>(null);
+  const [editingCell, setEditingCell] = useState<{ id: number | string; field: EditableField } | null>(null);
   const [editValue, setEditValue] = useState<string>('');
 
   useEffect(() => {
@@ -167,11 +130,42 @@ export default function Inventory() {
 
   const labels = translations[language];
 
+  const fetchInventory = async () => {
+    const { data, error } = await supabase.from('inventory').select('*').order('id', { ascending: false });
+    if (error) {
+      console.error('Failed to load inventory:', error.message);
+      return;
+    }
+
+    setParts((data as InventoryItem[] | null) ?? []);
+  };
+
+  useEffect(() => {
+    fetchInventory();
+
+    const inventoryChannel = supabase
+      .channel('inventory_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory' }, (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const updatedItem = payload.new as InventoryItem;
+          setParts((previousParts) => [updatedItem, ...previousParts.filter((part) => part.id.toString() !== updatedItem.id.toString())]);
+        }
+
+        if (payload.eventType === 'DELETE') {
+          const deletedItem = payload.old as InventoryItem;
+          setParts((previousParts) => previousParts.filter((part) => part.id.toString() !== deletedItem.id.toString()));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(inventoryChannel);
+    };
+  }, []);
+
   const filteredParts = parts.filter((item) => {
     const query = searchTerm.toLowerCase();
-    return (
-      item.name.toLowerCase().includes(query) || item.reference.toLowerCase().includes(query)
-    );
+    return item.name.toLowerCase().includes(query) || item.reference.toLowerCase().includes(query);
   });
 
   const startInlineEdit = (item: InventoryItem, field: EditableField) => {
@@ -179,7 +173,7 @@ export default function Inventory() {
     setEditValue(String(item[field]));
   };
 
-  const saveInlineEdit = () => {
+  const saveInlineEdit = async () => {
     if (!editingCell) {
       return;
     }
@@ -192,24 +186,62 @@ export default function Inventory() {
     }
 
     const nextValue = editingCell.field === 'quantity' ? Math.max(0, Math.floor(parsedValue)) : parsedValue;
+    const updatePayload = { [editingCell.field]: nextValue };
 
-    setParts((previousParts) =>
-      previousParts.map((part) => (part.id === editingCell.id ? { ...part, [editingCell.field]: nextValue } : part))
-    );
+    const { data, error } = await supabase
+      .from('inventory')
+      .update(updatePayload)
+      .eq('id', editingCell.id)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      console.error('Unable to save inventory edit:', error.message);
+      setEditingCell(null);
+      setEditValue('');
+      return;
+    }
+
+    if (data) {
+      setParts((previousParts) => [data, ...previousParts.filter((part) => part.id.toString() !== data.id.toString())]);
+    }
+
     setEditingCell(null);
     setEditValue('');
   };
 
-  const handleQuantityChange = (itemId: number, delta: number) => {
-    setParts((previousParts) =>
-      previousParts.map((part) =>
-        part.id === itemId ? { ...part, quantity: Math.max(0, part.quantity + delta) } : part
-      )
-    );
+  const handleQuantityChange = async (itemId: number | string, delta: number) => {
+    const part = parts.find((item) => item.id.toString() === itemId.toString());
+    if (!part) {
+      return;
+    }
+
+    const nextQuantity = Math.max(0, part.quantity + delta);
+    const { data, error } = await supabase
+      .from('inventory')
+      .update({ quantity: nextQuantity })
+      .eq('id', itemId)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      console.error('Unable to update quantity:', error.message);
+      return;
+    }
+
+    if (data) {
+      setParts((previousParts) => [data, ...previousParts.filter((item) => item.id.toString() !== data.id.toString())]);
+    }
   };
 
-  const handleDeletePart = (itemId: number) => {
-    setParts((previousParts) => previousParts.filter((part) => part.id !== itemId));
+  const handleDeletePart = async (itemId: number | string) => {
+    const { error } = await supabase.from('inventory').delete().eq('id', itemId);
+    if (error) {
+      console.error('Unable to delete inventory item:', error.message);
+      return;
+    }
+
+    setParts((previousParts) => previousParts.filter((part) => part.id.toString() !== itemId.toString()));
   };
 
   const openModal = () => {
@@ -222,11 +254,10 @@ export default function Inventory() {
     setFormState((previousState) => ({ ...previousState, [name]: value }));
   };
 
-  const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleFormSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const nextItem: InventoryItem = {
-      id: Date.now(),
+    const newItem: InventoryInsert = {
       name: formState.name.trim(),
       reference: formState.reference.trim(),
       compatibleCars: formState.compatibleCars.trim(),
@@ -235,11 +266,21 @@ export default function Inventory() {
       quantity: Math.max(0, Math.floor(Number(formState.quantity) || 0))
     };
 
-    if (!nextItem.name || !nextItem.reference) {
+    if (!newItem.name || !newItem.reference) {
       return;
     }
 
-    setParts((previousParts) => [nextItem, ...previousParts]);
+    const { data, error } = await supabase.from('inventory').insert(newItem).select().maybeSingle();
+
+    if (error) {
+      console.error('Unable to add inventory item:', error.message);
+      return;
+    }
+
+    if (data) {
+      setParts((previousParts) => [data, ...previousParts.filter((item) => item.id.toString() !== data.id.toString())]);
+    }
+
     setShowModal(false);
     setFormState(defaultFormState);
   };
