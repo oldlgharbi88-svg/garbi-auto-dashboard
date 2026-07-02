@@ -1,11 +1,13 @@
+type ActiveView = 'pos' | 'inventory' | 'invoices' | 'clients' | 'customers' | 'settings' | 'reports';
+
 interface SidebarProps {
-  activeView: string;
-  setActiveView: (view: string) => void;
+  activeView: ActiveView;
+  setActiveView: (view: ActiveView) => void;
   onLogout: () => void;
 }
 
 interface NavItem {
-  id: string;
+  id: ActiveView;
   label: string;
   icon: string;
 }
