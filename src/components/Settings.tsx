@@ -7,24 +7,17 @@ export default function Settings() {
     }
     return window.localStorage.getItem('storeName') ?? 'Garbi Auto Logistique';
   });
-  const [storeAddress, setStoreAddress] = useState<string>(() => {
+  const [invoiceHeader, setInvoiceHeader] = useState<string>(() => {
     if (typeof window === 'undefined') {
-      return 'Lot 14, Zone Industrielle, Casablanca';
+      return 'Ahmad Weld Al-Gharbi Auto Parts';
     }
-    return window.localStorage.getItem('storeAddress') ?? 'Lot 14, Zone Industrielle, Casablanca';
+    return window.localStorage.getItem('invoiceHeader') ?? 'Ahmad Weld Al-Gharbi Auto Parts';
   });
-  const [invoiceHeader, setInvoiceHeader] = useState<string>('Ahmad Weld Al-Gharbi Auto Parts');
   const [phoneNumber, setPhoneNumber] = useState<string>(() => {
     if (typeof window === 'undefined') {
       return '+212 5 22 11 22 33';
     }
     return window.localStorage.getItem('phoneNumber') ?? '+212 5 22 11 22 33';
-  });
-  const [taxId, setTaxId] = useState<string>(() => {
-    if (typeof window === 'undefined') {
-      return 'ICE 0011223344';
-    }
-    return window.localStorage.getItem('taxId') ?? 'ICE 0011223344';
   });
   const [currentPassword, setCurrentPassword] = useState<string>('');
   const [newPassword, setNewPassword] = useState<string>('');
@@ -39,9 +32,9 @@ export default function Settings() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem('storeAddress', storeAddress);
+      window.localStorage.setItem('invoiceHeader', invoiceHeader);
     }
-  }, [storeAddress]);
+  }, [invoiceHeader]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -49,14 +42,8 @@ export default function Settings() {
     }
   }, [phoneNumber]);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('taxId', taxId);
-    }
-  }, [taxId]);
-
-  const handlePasswordSave = () => {
-    const storedPassword = localStorage.getItem('adminPassword') ?? 'admin1234';
+  const handlePasswordSave = (): void => {
+    const storedPassword = window.localStorage.getItem('adminPassword') ?? 'admin1234';
 
     if (currentPassword !== storedPassword) {
       setMessage('Current password is incorrect.');
@@ -68,7 +55,7 @@ export default function Settings() {
       return;
     }
 
-    localStorage.setItem('adminPassword', newPassword);
+    window.localStorage.setItem('adminPassword', newPassword);
     setMessage('Admin password updated.');
     setCurrentPassword('');
     setNewPassword('');
@@ -103,28 +90,10 @@ export default function Settings() {
           </label>
 
           <label className="flex flex-col gap-2 text-sm font-medium text-on-surface-variant md:col-span-2">
-            Store Address
-            <input
-              value={storeAddress}
-              onChange={(event) => setStoreAddress(event.target.value)}
-              className="rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-3 text-on-surface"
-            />
-          </label>
-
-          <label className="flex flex-col gap-2 text-sm font-medium text-on-surface-variant">
             Phone Number
             <input
               value={phoneNumber}
               onChange={(event) => setPhoneNumber(event.target.value)}
-              className="rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-3 text-on-surface"
-            />
-          </label>
-
-          <label className="flex flex-col gap-2 text-sm font-medium text-on-surface-variant">
-            Tax ID
-            <input
-              value={taxId}
-              onChange={(event) => setTaxId(event.target.value)}
               className="rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-3 text-on-surface"
             />
           </label>

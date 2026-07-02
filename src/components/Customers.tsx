@@ -7,12 +7,20 @@ interface Customer {
   amountDue: number;
 }
 
+const initialCustomers: Customer[] = [
+  { id: 1, name: 'Apex Logistics', phone: '+212 6 00 11 22 33', amountDue: 12450 },
+  { id: 2, name: 'MediTrans Supply', phone: '+212 6 10 44 66 88', amountDue: 7600 },
+  { id: 3, name: 'Nordic Parts', phone: '+212 6 20 55 44 99', amountDue: 3210 }
+];
+
 export default function Customers() {
-  const [customers] = useState<Customer[]>([
-    { id: 1, name: 'Apex Logistics', phone: '+212 6 00 11 22 33', amountDue: 12450 },
-    { id: 2, name: 'MediTrans Supply', phone: '+212 6 10 44 66 88', amountDue: 7600 },
-    { id: 3, name: 'Nordic Parts', phone: '+212 6 20 55 44 99', amountDue: 3210 }
-  ]);
+  const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
+
+  const handleRecordPayment = (id: number): void => {
+    setCustomers((previousCustomers) =>
+      previousCustomers.map((customer) => (customer.id === id ? { ...customer, amountDue: 0 } : customer))
+    );
+  };
 
   return (
     <div className="rounded-3xl border border-outline-variant bg-surface-container p-6 shadow-2xl shadow-black/20">
@@ -43,8 +51,12 @@ export default function Customers() {
                 <td className="px-4 py-4 text-sm text-on-surface-variant">{customer.phone}</td>
                 <td className="px-4 py-4 text-sm font-semibold text-on-surface font-data-tabular">{customer.amountDue.toLocaleString()} MAD</td>
                 <td className="px-4 py-4">
-                  <button type="button" className="rounded-full border border-outline-variant bg-surface-container-high px-3 py-2 text-sm font-semibold text-on-surface">
-                    Record Payment
+                  <button
+                    type="button"
+                    onClick={() => handleRecordPayment(customer.id)}
+                    className="rounded-full border border-outline-variant bg-surface-container-high px-3 py-2 text-sm font-semibold text-on-surface"
+                  >
+                    {customer.amountDue > 0 ? 'Record Payment' : 'Paid'}
                   </button>
                 </td>
               </tr>

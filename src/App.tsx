@@ -4,11 +4,8 @@ import POS from './components/POS';
 import Customers from './components/Customers';
 import Settings from './components/Settings';
 import AdminLogin from './components/AdminLogin';
-import Inventory from './components/Inventory';
-import InvoicePrint from './components/InvoicePrint';
-import ClientDirectory from './components/ClientDirectory';
 
-type ActiveView = 'pos' | 'customers' | 'settings' | 'inventory' | 'invoices' | 'clients';
+type ActiveView = 'pos' | 'customers' | 'settings';
 
 export default function App() {
   const [activeView, setActiveView] = useState<ActiveView>('pos');
@@ -16,30 +13,23 @@ export default function App() {
   const [showAdminLogin, setShowAdminLogin] = useState<boolean>(false);
   const [pendingView, setPendingView] = useState<ActiveView | null>(null);
 
-  const handleViewChange = (view: string) => {
-    const targetView = view as ActiveView | 'reports';
-
-    if (targetView === 'reports') {
+  const handleViewChange = (view: string): void => {
+    if (view === 'customers' || view === 'settings') {
+      if (!isAdmin) {
+        setPendingView(view as ActiveView);
+        setShowAdminLogin(true);
+        return;
+      }
+      setActiveView(view as ActiveView);
       return;
     }
 
-    if ((targetView === 'customers' || targetView === 'settings' || targetView === 'inventory' || targetView === 'clients') && !isAdmin) {
-      setPendingView(targetView);
-      setShowAdminLogin(true);
-      return;
+    if (view === 'pos') {
+      setActiveView('pos');
     }
-
-    setActiveView(targetView);
   };
 
-  const handleClientSelection = (client: { id: number; name: string; phone: string; address: string; type: 'Retail' | 'Wholesale'; totalPurchases: number; history: Array<{ id: number; invoiceNumber: string; date: string; itemsCount: number; totalAmount: number }> }) => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('selectedClientForPos', JSON.stringify(client));
-    }
-    setActiveView('pos');
-  };
-
-  const handleAdminSuccess = () => {
+  const handleAdminSuccess = (): void => {
     setIsAdmin(true);
     if (pendingView) {
       setActiveView(pendingView);
@@ -48,7 +38,7 @@ export default function App() {
     setShowAdminLogin(false);
   };
 
-  const handleAdminLogout = () => {
+  const handleAdminLogout = (): void => {
     setIsAdmin(false);
     setActiveView('pos');
     setPendingView(null);
@@ -85,9 +75,6 @@ export default function App() {
           {activeView === 'pos' ? <POS /> : null}
           {activeView === 'customers' && isAdmin ? <Customers /> : null}
           {activeView === 'settings' && isAdmin ? <Settings /> : null}
-          {activeView === 'inventory' && isAdmin ? <Inventory /> : null}
-          {activeView === 'invoices' ? <InvoicePrint /> : null}
-          {activeView === 'clients' && isAdmin ? <ClientDirectory onNavigateToPos={handleClientSelection} /> : null}
         </main>
       </div>
 

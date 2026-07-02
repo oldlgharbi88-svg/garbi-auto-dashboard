@@ -13,16 +13,13 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { id: 'pos', label: 'POS', icon: 'point_of_sale', adminOnly: false },
-  { id: 'inventory', label: 'Inventory / المخزون / Inventaire', icon: 'inventory_2', adminOnly: true },
-  { id: 'invoices', label: 'Invoices / الفواتير / Factures', icon: 'receipt_long', adminOnly: false },
-  { id: 'clients', label: 'Clients / العملاء / Clients', icon: 'contacts', adminOnly: true },
   { id: 'customers', label: 'Customers', icon: 'groups', adminOnly: true },
   { id: 'settings', label: 'Settings', icon: 'settings', adminOnly: true },
   { id: 'reports', label: 'Reports', icon: 'analytics', adminOnly: true }
 ];
 
 export default function Sidebar({ activeView, setActiveView, isAdmin }: SidebarProps) {
-  const visibleItems = navItems;
+  const visibleItems = navItems.filter((item) => !item.adminOnly || isAdmin);
 
   return (
     <nav className="flex flex-col gap-2 p-4">
