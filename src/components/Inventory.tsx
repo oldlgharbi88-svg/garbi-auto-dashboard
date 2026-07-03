@@ -6,7 +6,7 @@ interface InventoryItem {
   id: number | string;
   name: string;
   reference: string;
-  compatibleCars: string;
+  compatible_cars: string;
   purchasePrice: number;
   sellingPrice: number;
   quantity: number;
@@ -15,7 +15,7 @@ interface InventoryItem {
 interface InventoryInsert {
   name: string;
   reference: string;
-  compatibleCars: string;
+  compatible_cars: string;
   purchasePrice: number;
   sellingPrice: number;
   quantity: number;
@@ -24,7 +24,7 @@ interface InventoryInsert {
 interface InventoryFormState {
   name: string;
   reference: string;
-  compatibleCars: string;
+  compatible_cars: string;
   purchasePrice: string;
   sellingPrice: string;
   quantity: string;
@@ -36,7 +36,7 @@ type EditableField = 'purchasePrice' | 'sellingPrice' | 'quantity';
 const defaultFormState: InventoryFormState = {
   name: '',
   reference: '',
-  compatibleCars: '',
+  compatible_cars: '',
   purchasePrice: '0',
   sellingPrice: '0',
   quantity: '1'
@@ -87,7 +87,7 @@ export default function Inventory() {
         title: 'Ajouter une nouvelle pièce',
         name: 'Nom de la pièce',
         reference: 'Référence',
-        compatibleCars: 'Voitures compatibles',
+        compatible_cars: 'Voitures compatibles',
         purchasePrice: 'Prix d\'achat',
         sellingPrice: 'Prix de vente',
         quantity: 'Quantité',
@@ -117,7 +117,7 @@ export default function Inventory() {
         title: 'إضافة قطعة جديدة',
         name: 'اسم القطعة',
         reference: 'المرجع',
-        compatibleCars: 'السيارات المناسبة',
+        compatible_cars: 'السيارات المناسبة',
         purchasePrice: 'سعر الشراء',
         sellingPrice: 'سعر البيع',
         quantity: 'الكمية',
@@ -262,7 +262,7 @@ export default function Inventory() {
     const newItem: InventoryInsert = {
       name: formState.name.trim(),
       reference: formState.reference.trim(),
-      compatibleCars: formState.compatibleCars.trim(),
+      compatible_cars: formState.compatible_cars.trim(),
       purchasePrice: Number(formState.purchasePrice) || 0,
       sellingPrice: Number(formState.sellingPrice) || 0,
       quantity: Math.max(0, Math.floor(Number(formState.quantity) || 0))
@@ -356,7 +356,7 @@ export default function Inventory() {
                     <td className="px-3 py-4 text-sm text-on-surface">{index + 1}</td>
                     <td className="px-3 py-4 text-sm font-semibold text-on-surface">{item.name}</td>
                     <td className="px-3 py-4 text-sm text-on-surface-variant">{item.reference}</td>
-                    <td className="px-3 py-4 text-sm text-on-surface-variant">{item.compatibleCars}</td>
+                    <td className="px-3 py-4 text-sm text-on-surface-variant">{item.compatible_cars}</td>
                     <td className="px-3 py-4 text-sm font-data-tabular text-on-surface">
                       {isEditing && editingCell?.field === 'purchasePrice' ? (
                         <input
@@ -475,8 +475,8 @@ export default function Inventory() {
                 <input name="reference" value={formState.reference} onChange={handleFormChange} className={inputClasses} placeholder={labels.form.reference} />
               </label>
               <label className="flex flex-col gap-2 text-sm text-on-surface-variant">
-                {labels.form.compatibleCars}
-                <input name="compatibleCars" value={formState.compatibleCars} onChange={handleFormChange} className={inputClasses} placeholder={labels.form.compatibleCars} />
+                {labels.form.compatible_cars}
+                <input name="compatible_cars" value={formState.compatible_cars} onChange={handleFormChange} className={inputClasses} placeholder={labels.form.compatible_cars} />
               </label>
               <label className="flex flex-col gap-2 text-sm text-on-surface-variant">
                 {labels.form.purchasePrice}
