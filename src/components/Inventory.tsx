@@ -7,8 +7,8 @@ interface InventoryItem {
   name: string;
   reference: string;
   compatible_cars: string;
-  purchasePrice: number;
-  sellingPrice: number;
+  purchaseprice: number;
+  sellingprice: number;
   quantity: number;
 }
 
@@ -16,8 +16,8 @@ interface InventoryInsert {
   name: string;
   reference: string;
   compatible_cars: string;
-  purchasePrice: number;
-  sellingPrice: number;
+  purchaseprice: number;
+  sellingprice: number;
   quantity: number;
 }
 
@@ -25,20 +25,20 @@ interface InventoryFormState {
   name: string;
   reference: string;
   compatible_cars: string;
-  purchasePrice: string;
-  sellingPrice: string;
+  purchaseprice: string;
+  sellingprice: string;
   quantity: string;
 }
 
 type InventoryLanguage = 'ar' | 'fr';
-type EditableField = 'purchasePrice' | 'sellingPrice' | 'quantity';
+type EditableField = 'purchaseprice' | 'sellingprice' | 'quantity';
 
 const defaultFormState: InventoryFormState = {
   name: '',
   reference: '',
   compatible_cars: '',
-  purchasePrice: '0',
-  sellingPrice: '0',
+  purchaseprice: '0',
+  sellingprice: '0',
   quantity: '1'
 };
 
@@ -88,8 +88,8 @@ export default function Inventory() {
         name: 'Nom de la pièce',
         reference: 'Référence',
         compatible_cars: 'Voitures compatibles',
-        purchasePrice: 'Prix d\'achat',
-        sellingPrice: 'Prix de vente',
+        purchaseprice: 'Prix d\'achat',
+        sellingprice: 'Prix de vente',
         quantity: 'Quantité',
         cancel: 'Annuler',
         save: 'Enregistrer'
@@ -118,8 +118,8 @@ export default function Inventory() {
         name: 'اسم القطعة',
         reference: 'المرجع',
         compatible_cars: 'السيارات المناسبة',
-        purchasePrice: 'سعر الشراء',
-        sellingPrice: 'سعر البيع',
+        purchaseprice: 'سعر الشراء',
+        sellingprice: 'سعر البيع',
         quantity: 'الكمية',
         cancel: 'إلغاء',
         save: 'حفظ'
@@ -263,8 +263,8 @@ export default function Inventory() {
       name: formState.name.trim(),
       reference: formState.reference.trim(),
       compatible_cars: formState.compatible_cars.trim(),
-      purchasePrice: Number(formState.purchasePrice) || 0,
-      sellingPrice: Number(formState.sellingPrice) || 0,
+      purchaseprice: Number(formState.purchaseprice) || 0,
+      sellingprice: Number(formState.sellingprice) || 0,
       quantity: Math.max(0, Math.floor(Number(formState.quantity) || 0))
     };
 
@@ -358,7 +358,7 @@ export default function Inventory() {
                     <td className="px-3 py-4 text-sm text-on-surface-variant">{item.reference}</td>
                     <td className="px-3 py-4 text-sm text-on-surface-variant">{item.compatible_cars}</td>
                     <td className="px-3 py-4 text-sm font-data-tabular text-on-surface">
-                      {isEditing && editingCell?.field === 'purchasePrice' ? (
+                      {isEditing && editingCell?.field === 'purchaseprice' ? (
                         <input
                           autoFocus
                           value={editValue}
@@ -374,13 +374,13 @@ export default function Inventory() {
                           type="number"
                         />
                       ) : (
-                        <button type="button" onClick={() => startInlineEdit(item, 'purchasePrice')} className="text-left">
-                          {item.purchasePrice.toFixed(2)} MAD
+                        <button type="button" onClick={() => startInlineEdit(item, 'purchaseprice')} className="text-left">
+                          {item.purchaseprice.toFixed(2)} MAD
                         </button>
                       )}
                     </td>
                     <td className="px-3 py-4 text-sm font-data-tabular text-on-surface">
-                      {isEditing && editingCell?.field === 'sellingPrice' ? (
+                      {isEditing && editingCell?.field === 'sellingprice' ? (
                         <input
                           autoFocus
                           value={editValue}
@@ -396,8 +396,8 @@ export default function Inventory() {
                           type="number"
                         />
                       ) : (
-                        <button type="button" onClick={() => startInlineEdit(item, 'sellingPrice')} className="text-left">
-                          {item.sellingPrice.toFixed(2)} MAD
+                        <button type="button" onClick={() => startInlineEdit(item, 'sellingprice')} className="text-left">
+                          {item.sellingprice.toFixed(2)} MAD
                         </button>
                       )}
                     </td>
@@ -436,7 +436,7 @@ export default function Inventory() {
                     </td>
                     <td className="px-3 py-4">
                       <div className="flex items-center gap-2">
-                        <button type="button" onClick={() => startInlineEdit(item, 'purchasePrice')} className="rounded-full border border-outline-variant bg-surface-container-high px-3 py-2 text-sm font-semibold text-on-surface">
+                        <button type="button" onClick={() => startInlineEdit(item, 'purchaseprice')} className="rounded-full border border-outline-variant bg-surface-container-high px-3 py-2 text-sm font-semibold text-on-surface">
                           <span className="material-symbols-outlined text-base">edit</span>
                         </button>
                         <button type="button" onClick={() => handleDeletePart(item.id)} className="rounded-full border border-outline-variant bg-surface-container-high px-3 py-2 text-sm font-semibold text-on-surface">
@@ -479,12 +479,12 @@ export default function Inventory() {
                 <input name="compatible_cars" value={formState.compatible_cars} onChange={handleFormChange} className={inputClasses} placeholder={labels.form.compatible_cars} />
               </label>
               <label className="flex flex-col gap-2 text-sm text-on-surface-variant">
-                {labels.form.purchasePrice}
-                <input type="number" name="purchasePrice" value={formState.purchasePrice} onChange={handleFormChange} className={inputClasses} />
+                {labels.form.purchaseprice}
+                <input type="number" name="purchaseprice" value={formState.purchaseprice} onChange={handleFormChange} className={inputClasses} />
               </label>
               <label className="flex flex-col gap-2 text-sm text-on-surface-variant">
-                {labels.form.sellingPrice}
-                <input type="number" name="sellingPrice" value={formState.sellingPrice} onChange={handleFormChange} className={inputClasses} />
+                {labels.form.sellingprice}
+                <input type="number" name="sellingprice" value={formState.sellingprice} onChange={handleFormChange} className={inputClasses} />
               </label>
               <label className="flex flex-col gap-2 text-sm text-on-surface-variant">
                 {labels.form.quantity}
