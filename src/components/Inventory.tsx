@@ -651,7 +651,7 @@ export default function Inventory() {
 
       {showModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-2xl rounded-3xl border border-outline-variant bg-surface-container p-6 shadow-2xl shadow-black/30">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-outline-variant bg-surface-container p-6 shadow-2xl shadow-black/30">
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <p className="text-sm uppercase tracking-[0.3em] text-on-surface-variant">{labels.form.title}</p>
