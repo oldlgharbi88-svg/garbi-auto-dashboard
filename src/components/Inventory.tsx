@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
 
@@ -67,6 +67,15 @@ export default function Inventory() {
   const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null);
   const [imageUploadError, setImageUploadError] = useState<string>('');
   const [isUploadingImage, setIsUploadingImage] = useState<boolean>(false);
+  const [imageEditTarget, setImageEditTarget] = useState<InventoryItem | null>(null);
+  const [imageEditFile, setImageEditFile] = useState<File | null>(null);
+  const [imageEditPreview, setImageEditPreview] = useState<string | null>(null);
+  const [imageEditError, setImageEditError] = useState<string>('');
+  const [imageEditSuccess, setImageEditSuccess] = useState<string>('');
+  const [isUpdatingImage, setIsUpdatingImage] = useState<boolean>(false);
+  const [isImageEditModalOpen, setIsImageEditModalOpen] = useState<boolean>(false);
+  const [updatingImageId, setUpdatingImageId] = useState<number | string | null>(null);
+  const imageFileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     window.localStorage.setItem('inventoryLang', language);
@@ -79,6 +88,14 @@ export default function Inventory() {
       }
     };
   }, [selectedImagePreview]);
+
+  useEffect(() => {
+    return () => {
+      if (imageEditPreview) {
+        URL.revokeObjectURL(imageEditPreview);
+      }
+    };
+  }, [imageEditPreview]);
 
   const translations = {
     fr: {
@@ -170,6 +187,17 @@ export default function Inventory() {
     return `${Date.now()}-${randomString}${extension ? `.${extension}` : ''}`;
   };
 
+  const extractStorageFilename = (imageUrl: string) => {
+    try {
+      const pathname = new URL(imageUrl).pathname;
+      const segments = pathname.split('/');
+      const fileName = segments[segments.length - 1] ?? '';
+      return decodeURIComponent(fileName);
+    } catch {
+      return null;
+    }
+  };
+
   const uploadPartImage = async (file: File): Promise<string> => {
     const fileName = createRandomFilename(file.name);
     const { data, error } = await supabase.storage.from('part-images').upload(fileName, file, {
@@ -214,6 +242,112 @@ export default function Inventory() {
     setSelectedImageFile(file);
     setSelectedImagePreview(URL.createObjectURL(file));
     setImageUploadError('');
+  };
+
+  const clearImageEditSelection = () => {
+    if (imageEditPreview) {
+      URL.revokeObjectURL(imageEditPreview);
+    }
+
+    setImageEditTarget(null);
+    setImageEditFile(null);
+    setImageEditPreview(null);
+    setImageEditError('');
+    setIsImageEditModalOpen(false);
+  };
+
+  const openImageEditPicker = (item: InventoryItem) => {
+    setImageEditTarget(item);
+    setImageEditError('');
+    setImageEditSuccess('');
+    setIsImageEditModalOpen(false);
+    imageFileInputRef.current?.click();
+  };
+
+  const handleImageEditSelection = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+
+    if (!file) {
+      clearImageEditSelection();
+      return;
+    }
+
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setImageEditError('Please select a PNG, JPEG, or WEBP image.');
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setImageEditError('Image must be 5 MB or less.');
+      event.target.value = '';
+      return;
+    }
+
+    if (imageEditPreview) {
+      URL.revokeObjectURL(imageEditPreview);
+    }
+
+    setImageEditFile(file);
+    setImageEditPreview(URL.createObjectURL(file));
+    setImageEditError('');
+    setIsImageEditModalOpen(true);
+    event.target.value = '';
+  };
+
+  const handleSaveImageEdit = async () => {
+    if (!imageEditTarget || !imageEditFile) {
+      return;
+    }
+
+    setIsUpdatingImage(true);
+    setUpdatingImageId(imageEditTarget.id);
+    setImageEditError('');
+
+    try {
+      // Upload the replacement image first so we can safely update the inventory row.
+      const publicUrl = await uploadPartImage(imageEditFile);
+
+      const { data: updatedItem, error: updateError } = await supabase
+        .from('inventory')
+        .update({ image_url: publicUrl })
+        .eq('id', imageEditTarget.id)
+        .select()
+        .maybeSingle();
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      // Delete the old image after the row update succeeds; if that fails, we warn and continue.
+      const oldImageUrl = imageEditTarget.image_url;
+      if (oldImageUrl) {
+        const oldFileName = extractStorageFilename(oldImageUrl);
+        if (oldFileName) {
+          const { error: deleteError } = await supabase.storage.from('part-images').remove([oldFileName]);
+          if (deleteError) {
+            console.warn('Unable to delete the previous part image:', deleteError.message);
+          }
+        }
+      }
+
+      if (updatedItem) {
+        setParts((previousParts) => [updatedItem, ...previousParts.filter((part) => part.id.toString() !== updatedItem.id.toString())]);
+      } else {
+        await fetchInventory();
+      }
+
+      setImageEditSuccess('Image updated successfully.');
+      clearImageEditSelection();
+      await fetchInventory();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to update the image.';
+      setImageEditError(message);
+    } finally {
+      setIsUpdatingImage(false);
+      setUpdatingImageId(null);
+    }
   };
 
   const fetchInventory = async () => {
@@ -431,6 +565,20 @@ export default function Inventory() {
           </label>
         </div>
 
+        {imageEditSuccess ? (
+          <div className="mb-4 rounded-2xl border border-success/40 bg-success-container px-4 py-3 text-sm text-on-success-container">
+            {imageEditSuccess}
+          </div>
+        ) : null}
+
+        <input
+          ref={imageFileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          onChange={handleImageEditSelection}
+          className="hidden"
+        />
+
         <div className="overflow-hidden rounded-2xl border border-outline-variant">
           <table className="min-w-full divide-y divide-outline-variant">
             <thead className="bg-surface-container-high">
@@ -455,12 +603,32 @@ export default function Inventory() {
                   <tr key={item.id} className={isLowStock ? 'bg-error-container' : 'bg-surface-container'}>
                     <td className="px-3 py-4 text-sm text-on-surface">{index + 1}</td>
                     <td className="px-3 py-4">
-                      <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-gray-200">
+                      <div className="group relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-gray-200">
                         {item.image_url ? (
                           <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
                         ) : (
                           <span className="material-symbols-outlined text-base text-on-surface-variant">image</span>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => openImageEditPicker(item)}
+                          disabled={isUpdatingImage && updatingImageId === item.id}
+                          className="absolute right-0 top-0 rounded-full border border-outline-variant bg-surface-container-high p-1 text-on-surface opacity-0 shadow-sm transition group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-100"
+                          aria-label="Edit image"
+                        >
+                          {isUpdatingImage && updatingImageId === item.id ? (
+                            <span className="flex items-center justify-center">
+                              <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeDasharray="56" />
+                              </svg>
+                            </span>
+                          ) : (
+                            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                              <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L8.5 17.5l-4 1 1-4 11-11Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                              <path d="m14.5 6.5 3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                            </svg>
+                          )}
+                        </button>
                       </div>
                     </td>
                     <td className="px-3 py-4 text-sm font-semibold text-on-surface">{item.name}</td>
@@ -560,6 +728,62 @@ export default function Inventory() {
           </table>
         </div>
       </div>
+
+      {isImageEditModalOpen && imageEditTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-xl rounded-3xl border border-outline-variant bg-surface-container p-6 shadow-2xl shadow-black/30">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <p className="text-sm uppercase tracking-[0.3em] text-on-surface-variant">Update image / Mise à jour de l’image</p>
+                <h2 className="mt-2 text-2xl font-semibold text-on-surface">Replace image</h2>
+              </div>
+              <button type="button" onClick={clearImageEditSelection} className="rounded-full border border-outline-variant bg-surface-container-high p-2 text-on-surface">
+                <span className="material-symbols-outlined text-lg">close</span>
+              </button>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-outline-variant bg-surface-container-low p-4">
+                <p className="text-sm font-semibold text-on-surface">Current image</p>
+                <div className="mt-3 flex h-40 items-center justify-center overflow-hidden rounded-2xl bg-gray-200">
+                  {imageEditTarget.image_url ? (
+                    <img src={imageEditTarget.image_url} alt={imageEditTarget.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="material-symbols-outlined text-4xl text-on-surface-variant">image</span>
+                  )}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-outline-variant bg-surface-container-low p-4">
+                <p className="text-sm font-semibold text-on-surface">New image</p>
+                {imageEditPreview ? (
+                  <div className="mt-3 overflow-hidden rounded-2xl">
+                    <img src={imageEditPreview} alt="Preview of replacement" className="h-40 w-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="mt-3 flex h-40 items-center justify-center rounded-2xl border border-dashed border-outline-variant text-sm text-on-surface-variant">
+                    Choose a new PNG, JPEG, or WEBP image up to 5 MB.
+                  </div>
+                )}
+                {imageEditError ? <p role="alert" className="mt-3 text-sm text-error">{imageEditError}</p> : null}
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" onClick={clearImageEditSelection} className="rounded-full border border-outline-variant bg-surface-container-high px-4 py-2 text-sm font-semibold text-on-surface">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveImageEdit}
+                disabled={!imageEditFile || isUpdatingImage}
+                className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-on-primary disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isUpdatingImage ? 'Updating...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {showModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
