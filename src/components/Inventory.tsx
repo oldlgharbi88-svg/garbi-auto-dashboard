@@ -10,6 +10,7 @@ interface InventoryItem {
   purchaseprice: number;
   sellingprice: number;
   quantity: number;
+  image_url?: string | null;
 }
 
 interface InventoryInsert {
@@ -19,6 +20,7 @@ interface InventoryInsert {
   purchaseprice: number;
   sellingprice: number;
   quantity: number;
+  image_url?: string | null;
 }
 
 interface InventoryFormState {
@@ -61,10 +63,22 @@ export default function Inventory() {
   const [saveError, setSaveError] = useState<string>('');
   const [editingCell, setEditingCell] = useState<{ id: number | string; field: EditableField } | null>(null);
   const [editValue, setEditValue] = useState<string>('');
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null);
+  const [imageUploadError, setImageUploadError] = useState<string>('');
+  const [isUploadingImage, setIsUploadingImage] = useState<boolean>(false);
 
   useEffect(() => {
     window.localStorage.setItem('inventoryLang', language);
   }, [language]);
+
+  useEffect(() => {
+    return () => {
+      if (selectedImagePreview) {
+        URL.revokeObjectURL(selectedImagePreview);
+      }
+    };
+  }, [selectedImagePreview]);
 
   const translations = {
     fr: {
@@ -127,6 +141,9 @@ export default function Inventory() {
         purchaseprice: 'سعر الشراء',
         sellingprice: 'سعر البيع',
         quantity: 'الكمية',
+        image: 'صورة القطعة',
+        imageHelp: 'PNG أو JPEG أو WEBP • الحد الأقصى 5 ميغابايت',
+        removeImage: 'إزالة',
         cancel: 'إلغاء',
         save: 'حفظ'
       },
@@ -136,6 +153,68 @@ export default function Inventory() {
   };
 
   const labels = translations[language];
+
+  const resetImageSelection = () => {
+    if (selectedImagePreview) {
+      URL.revokeObjectURL(selectedImagePreview);
+    }
+
+    setSelectedImageFile(null);
+    setSelectedImagePreview(null);
+    setImageUploadError('');
+  };
+
+  const createRandomFilename = (originalName: string) => {
+    const extension = originalName.split('.').pop() ?? '';
+    const randomString = Math.random().toString(36).slice(2, 10);
+    return `${Date.now()}-${randomString}${extension ? `.${extension}` : ''}`;
+  };
+
+  const uploadPartImage = async (file: File): Promise<string> => {
+    const fileName = createRandomFilename(file.name);
+    const { data, error } = await supabase.storage.from('part-images').upload(fileName, file, {
+      cacheControl: '3600',
+      contentType: file.type,
+      upsert: false
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    const { data: publicUrlData } = supabase.storage.from('part-images').getPublicUrl(fileName);
+    return publicUrlData.publicUrl;
+  };
+
+  const handleImageSelection = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+
+    if (!file) {
+      resetImageSelection();
+      return;
+    }
+
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setImageUploadError('Please select a PNG, JPEG, or WEBP image.');
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setImageUploadError('Image must be 5 MB or less.');
+      event.target.value = '';
+      return;
+    }
+
+    if (selectedImagePreview) {
+      URL.revokeObjectURL(selectedImagePreview);
+    }
+
+    setSelectedImageFile(file);
+    setSelectedImagePreview(URL.createObjectURL(file));
+    setImageUploadError('');
+  };
 
   const fetchInventory = async () => {
     const { data, error } = await supabase.from('inventory').select('*').order('id', { ascending: false });
@@ -253,6 +332,8 @@ export default function Inventory() {
 
   const openModal = () => {
     setFormState(defaultFormState);
+    resetImageSelection();
+    setSaveError('');
     setShowModal(true);
   };
 
@@ -270,13 +351,28 @@ export default function Inventory() {
       return;
     }
 
+    let imageUrl: string | null = null;
+    if (selectedImageFile) {
+      setIsUploadingImage(true);
+      try {
+        imageUrl = await uploadPartImage(selectedImageFile);
+      } catch (error) {
+        const uploadMessage = error instanceof Error ? error.message : 'Unable to upload image.';
+        setSaveError(uploadMessage);
+        imageUrl = null;
+      } finally {
+        setIsUploadingImage(false);
+      }
+    }
+
     const newItem: InventoryInsert = {
       name: formState.name.trim(),
       reference: formState.reference.trim(),
       compatible_cars: formState.compatible_cars.trim(),
       purchaseprice: Number(formState.purchaseprice) || 0,
       sellingprice: Number(formState.sellingprice) || 0,
-      quantity: Math.max(0, Math.floor(Number(formState.quantity) || 0))
+      quantity: Math.max(0, Math.floor(Number(formState.quantity) || 0)),
+      image_url: imageUrl
     };
 
     const { data, error } = await supabase.from('inventory').insert([newItem]).select().single();
@@ -291,6 +387,7 @@ export default function Inventory() {
       setParts((previousParts) => [data, ...previousParts.filter((item) => item.id.toString() !== data.id.toString())]);
     }
 
+    resetImageSelection();
     setShowModal(false);
     setFormState(defaultFormState);
   };
@@ -339,6 +436,7 @@ export default function Inventory() {
             <thead className="bg-surface-container-high">
               <tr>
                 <th className="px-3 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] text-on-surface-variant">{labels.table.number}</th>
+                <th className="px-3 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] text-on-surface-variant">{labels.table.image}</th>
                 <th className="px-3 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] text-on-surface-variant">{labels.table.name}</th>
                 <th className="px-3 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] text-on-surface-variant">{labels.table.reference}</th>
                 <th className="px-3 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] text-on-surface-variant">{labels.table.compatible}</th>
@@ -356,6 +454,15 @@ export default function Inventory() {
                 return (
                   <tr key={item.id} className={isLowStock ? 'bg-error-container' : 'bg-surface-container'}>
                     <td className="px-3 py-4 text-sm text-on-surface">{index + 1}</td>
+                    <td className="px-3 py-4">
+                      <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-gray-200">
+                        {item.image_url ? (
+                          <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="material-symbols-outlined text-base text-on-surface-variant">image</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-3 py-4 text-sm font-semibold text-on-surface">{item.name}</td>
                     <td className="px-3 py-4 text-sm text-on-surface-variant">{item.reference}</td>
                     <td className="px-3 py-4 text-sm text-on-surface-variant">{item.compatible_cars}</td>
@@ -493,6 +600,28 @@ export default function Inventory() {
                 <input type="number" name="quantity" value={formState.quantity} onChange={handleFormChange} className={inputClasses} />
               </label>
 
+              <label className="flex flex-col gap-2 text-sm text-on-surface-variant md:col-span-2">
+                {labels.form.image}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={handleImageSelection}
+                  className="w-full text-sm text-on-surface-variant file:mr-4 file:rounded-full file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-semibold file:text-on-primary"
+                />
+                <p className="mt-2 text-xs text-on-surface-variant">{labels.form.imageHelp}</p>
+                {imageUploadError ? <p role="alert" className="mt-3 text-sm text-error">{imageUploadError}</p> : null}
+                {selectedImagePreview ? (
+                  <div className="mt-4 flex items-center gap-3 rounded-2xl border border-outline-variant bg-surface-container p-3">
+                    <img src={selectedImagePreview} alt="Selected preview" className="h-[60px] w-[60px] rounded-lg object-cover" />
+                    <div className="flex flex-1 flex-col gap-2">
+                      <p className="text-sm font-semibold text-on-surface">{selectedImageFile?.name}</p>
+                      <button type="button" onClick={resetImageSelection} className="w-fit rounded-full border border-outline-variant px-3 py-2 text-sm text-on-surface">
+                        {labels.form.removeImage}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </label>
 
               <div className="flex justify-end gap-3 md:col-span-2">
                 <button type="button" onClick={() => setShowModal(false)} className="rounded-full border border-outline-variant bg-surface-container-high px-4 py-2 text-sm font-semibold text-on-surface">
