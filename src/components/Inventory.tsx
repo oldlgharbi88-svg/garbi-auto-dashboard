@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
+import { processImage } from '../utils/imageProcessor';
 
 interface InventoryItem {
   id: number | string;
@@ -75,6 +76,13 @@ export default function Inventory() {
   const [isUpdatingImage, setIsUpdatingImage] = useState<boolean>(false);
   const [isImageEditModalOpen, setIsImageEditModalOpen] = useState<boolean>(false);
   const [updatingImageId, setUpdatingImageId] = useState<number | string | null>(null);
+  const [processingStage, setProcessingStage] = useState<string>('');
+  const [isProcessingImage, setIsProcessingImage] = useState<boolean>(false);
+  const [processedImageBlob, setProcessedImageBlob] = useState<Blob | null>(null);
+  const [processedImagePreview, setProcessedImagePreview] = useState<string | null>(null);
+  const [processingError, setProcessingError] = useState<string>('');
+  const [imageUploadMode, setImageUploadMode] = useState<'original' | 'processed'>('original');
+  const [imageProcessingCache, setImageProcessingCache] = useState<Record<string, Blob>>({});
   const imageFileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -96,6 +104,14 @@ export default function Inventory() {
       }
     };
   }, [imageEditPreview]);
+
+  useEffect(() => {
+    return () => {
+      if (processedImagePreview) {
+        URL.revokeObjectURL(processedImagePreview);
+      }
+    };
+  }, [processedImagePreview]);
 
   const translations = {
     fr: {
@@ -129,6 +145,18 @@ export default function Inventory() {
         removeImage: 'Retirer',
         cancel: 'Annuler',
         save: 'Enregistrer'
+      },
+      imageProcessing: {
+        processButton: 'Traiter l’image',
+        processingTitle: 'Traitement de l’image…',
+        removingBackground: 'Suppression de l’arrière-plan…',
+        enhancing: 'Amélioration de l’image…',
+        finalizing: 'Finalisation…',
+        useProcessed: 'Utiliser l’image traitée',
+        useOriginal: 'Utiliser l’original',
+        original: 'Original',
+        processed: 'Version professionnelle',
+        fallbackNotice: 'Le traitement a échoué. L’image originale sera utilisée.'
       },
       edit: 'Modifier',
       delete: 'Supprimer'
@@ -164,6 +192,18 @@ export default function Inventory() {
         cancel: 'إلغاء',
         save: 'حفظ'
       },
+      imageProcessing: {
+        processButton: 'معالجة الصورة',
+        processingTitle: 'جاري معالجة الصورة…',
+        removingBackground: 'جاري إزالة الخلفية…',
+        enhancing: 'جاري تحسين الصورة…',
+        finalizing: 'جاري الإنهاء…',
+        useProcessed: 'استخدام الصورة المجهزة',
+        useOriginal: 'استخدام الأصل',
+        original: 'الأصل',
+        processed: 'نسخة احترافية',
+        fallbackNotice: 'فشل المعالجة. سيتم استخدام الصورة الأصلية.'
+      },
       edit: 'تعديل',
       delete: 'حذف'
     }
@@ -176,9 +216,19 @@ export default function Inventory() {
       URL.revokeObjectURL(selectedImagePreview);
     }
 
+    if (processedImagePreview) {
+      URL.revokeObjectURL(processedImagePreview);
+    }
+
     setSelectedImageFile(null);
     setSelectedImagePreview(null);
     setImageUploadError('');
+    setProcessingStage('');
+    setIsProcessingImage(false);
+    setProcessedImageBlob(null);
+    setProcessedImagePreview(null);
+    setProcessingError('');
+    setImageUploadMode('original');
   };
 
   const createRandomFilename = (originalName: string) => {
@@ -186,6 +236,8 @@ export default function Inventory() {
     const randomString = Math.random().toString(36).slice(2, 10);
     return `${Date.now()}-${randomString}${extension ? `.${extension}` : ''}`;
   };
+
+  const createCacheKey = (file: File) => `${file.name}-${file.size}-${file.lastModified}`;
 
   const extractStorageFilename = (imageUrl: string) => {
     try {
@@ -198,11 +250,11 @@ export default function Inventory() {
     }
   };
 
-  const uploadPartImage = async (file: File): Promise<string> => {
-    const fileName = createRandomFilename(file.name);
+  const uploadPartImage = async (file: File | Blob, fallbackName: string = 'image.png'): Promise<string> => {
+    const fileName = createRandomFilename(fallbackName);
     const { data, error } = await supabase.storage.from('part-images').upload(fileName, file, {
       cacheControl: '3600',
-      contentType: file.type,
+      contentType: file.type || 'image/png',
       upsert: false
     });
 
@@ -249,10 +301,20 @@ export default function Inventory() {
       URL.revokeObjectURL(imageEditPreview);
     }
 
+    if (processedImagePreview) {
+      URL.revokeObjectURL(processedImagePreview);
+    }
+
     setImageEditTarget(null);
     setImageEditFile(null);
     setImageEditPreview(null);
     setImageEditError('');
+    setProcessingStage('');
+    setIsProcessingImage(false);
+    setProcessedImageBlob(null);
+    setProcessedImagePreview(null);
+    setProcessingError('');
+    setImageUploadMode('original');
     setIsImageEditModalOpen(false);
   };
 
@@ -264,7 +326,7 @@ export default function Inventory() {
     imageFileInputRef.current?.click();
   };
 
-  const handleImageEditSelection = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleImageEditSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
 
     if (!file) {
@@ -293,6 +355,35 @@ export default function Inventory() {
     setImageEditPreview(URL.createObjectURL(file));
     setImageEditError('');
     setIsImageEditModalOpen(true);
+    setProcessingStage(labels.imageProcessing.processingTitle);
+    setIsProcessingImage(true);
+    setImageUploadMode('processed');
+    setProcessingError('');
+
+    try {
+      const cacheKey = createCacheKey(file);
+      const cachedImage = imageProcessingCache[cacheKey];
+      if (cachedImage) {
+        setProcessedImageBlob(cachedImage);
+        setProcessedImagePreview(URL.createObjectURL(cachedImage));
+        setIsProcessingImage(false);
+        setProcessingStage(labels.imageProcessing.finalizing);
+      } else {
+        const processedBlob = await processImage(file, ({ stage }) => {
+          setProcessingStage(stage);
+        });
+        setImageProcessingCache((previousCache) => ({ ...previousCache, [cacheKey]: processedBlob }));
+        setProcessedImageBlob(processedBlob);
+        setProcessedImagePreview(URL.createObjectURL(processedBlob));
+        setIsProcessingImage(false);
+        setProcessingStage(labels.imageProcessing.finalizing);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : labels.imageProcessing.fallbackNotice;
+      setProcessingError(message);
+      setIsProcessingImage(false);
+    }
+
     event.target.value = '';
   };
 
@@ -307,7 +398,8 @@ export default function Inventory() {
 
     try {
       // Upload the replacement image first so we can safely update the inventory row.
-      const publicUrl = await uploadPartImage(imageEditFile);
+      const uploadTarget = imageUploadMode === 'processed' && processedImageBlob ? processedImageBlob : imageEditFile;
+      const publicUrl = await uploadPartImage(uploadTarget, imageEditFile?.name ?? 'image.png');
 
       const { data: updatedItem, error: updateError } = await supabase
         .from('inventory')
@@ -476,6 +568,41 @@ export default function Inventory() {
     setFormState((previousState) => ({ ...previousState, [name]: value }));
   };
 
+  const handleProcessSelectedImage = async () => {
+    if (!selectedImageFile) {
+      return;
+    }
+
+    setIsProcessingImage(true);
+    setProcessingStage(labels.imageProcessing.processingTitle);
+    setProcessingError('');
+    setImageUploadMode('processed');
+
+    try {
+      const cacheKey = createCacheKey(selectedImageFile);
+      const cachedImage = imageProcessingCache[cacheKey];
+      if (cachedImage) {
+        setProcessedImageBlob(cachedImage);
+        setProcessedImagePreview(URL.createObjectURL(cachedImage));
+        setIsProcessingImage(false);
+        setProcessingStage(labels.imageProcessing.finalizing);
+      } else {
+        const processedBlob = await processImage(selectedImageFile, ({ stage }) => {
+          setProcessingStage(stage);
+        });
+        setImageProcessingCache((previousCache) => ({ ...previousCache, [cacheKey]: processedBlob }));
+        setProcessedImageBlob(processedBlob);
+        setProcessedImagePreview(URL.createObjectURL(processedBlob));
+        setIsProcessingImage(false);
+        setProcessingStage(labels.imageProcessing.finalizing);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : labels.imageProcessing.fallbackNotice;
+      setProcessingError(message);
+      setIsProcessingImage(false);
+    }
+  };
+
   const handleFormSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSaveError('');
@@ -489,7 +616,8 @@ export default function Inventory() {
     if (selectedImageFile) {
       setIsUploadingImage(true);
       try {
-        imageUrl = await uploadPartImage(selectedImageFile);
+        const uploadTarget = imageUploadMode === 'processed' && processedImageBlob ? processedImageBlob : selectedImageFile;
+        imageUrl = await uploadPartImage(uploadTarget, selectedImageFile.name);
       } catch (error) {
         const uploadMessage = error instanceof Error ? error.message : 'Unable to upload image.';
         setSaveError(uploadMessage);
