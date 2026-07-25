@@ -8,7 +8,9 @@ import Inventory from './components/Inventory';
 import InvoicePrint from './components/InvoicePrint';
 import Reports from './components/Reports';
 import AccessModal from './components/AdminLogin';
+import CartDrawer from './components/CartDrawer';
 import PublicCatalog from './pages/PublicCatalog';
+import PrintInvoice from './pages/PrintInvoice';
 import { useCart } from './context/CartContext';
 
 type ActiveView = 'pos' | 'inventory' | 'invoices' | 'clients' | 'customers' | 'settings' | 'reports';
@@ -40,7 +42,7 @@ export default function App() {
   const [accessError, setAccessError] = useState<string>('');
   const [currentRoute, setCurrentRoute] = useState<string>(() => window.location.pathname);
   const [showCartPanel, setShowCartPanel] = useState<boolean>(false);
-  const { cartItems, cartCount, total, toast, clearToast, removeFromCart, updateQuantity } = useCart();
+  const { cartCount, toast, clearToast } = useCart();
 
   useEffect(() => {
     const handleLocationChange = () => {
@@ -59,6 +61,7 @@ export default function App() {
   };
 
   const isAdminRoute = currentRoute === '/admin' || currentRoute.startsWith('/admin/') || currentRoute === '/dashboard' || currentRoute.startsWith('/dashboard/');
+  const isPrintRoute = currentRoute === '/print-invoice' || currentRoute.startsWith('/print-invoice/');
 
   const handleViewChange = (view: ActiveView): void => {
     if (requiresAuth(view) && !canAccess(view, currentRole)) {
@@ -104,7 +107,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-surface-container-lowest text-on-surface">
-      {isAdminRoute ? (
+      {isPrintRoute ? (
+        <PrintInvoice />
+      ) : isAdminRoute ? (
         <>
           <header className="fixed inset-x-0 top-0 z-30 flex h-20 items-center justify-between border-b border-outline-variant bg-surface-container/95 px-6 backdrop-blur-xl">
             <div>
@@ -176,66 +181,13 @@ export default function App() {
           <PublicCatalog />
 
           {showCartPanel ? (
-            <div className="fixed inset-y-0 right-0 z-40 w-full max-w-md border-l border-zinc-800 bg-zinc-950/95 p-6 shadow-2xl shadow-black/50 backdrop-blur-xl">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold text-white">Votre panier</h2>
-                  <p className="text-sm text-zinc-400">{cartCount} article{cartCount > 1 ? 's' : ''}</p>
-                </div>
-                <button type="button" onClick={() => setShowCartPanel(false)} className="text-sm text-zinc-400">
-                  Fermer
-                </button>
-              </div>
-
-              <div className="mt-6 space-y-4">
-                {cartItems.length === 0 ? (
-                  <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 text-sm text-zinc-400">
-                    Le panier est vide pour le moment.
-                  </div>
-                ) : (
-                  cartItems.map((item) => (
-                    <div key={item.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-semibold text-white">{item.name}</p>
-                          <p className="text-sm text-zinc-400">{item.reference}</p>
-                        </div>
-                        <button type="button" onClick={() => removeFromCart(item.id)} className="text-sm text-red-400">
-                          Supprimer
-                        </button>
-                      </div>
-                      <div className="mt-4 flex items-center justify-between">
-                        <div className="flex items-center gap-2 rounded-full border border-zinc-700 px-2 py-1">
-                          <button
-                            type="button"
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                            className="h-7 w-7 rounded-full bg-zinc-800 text-white"
-                          >
-                            -
-                          </button>
-                          <span className="min-w-6 text-center text-sm text-white">{item.quantity}</span>
-                          <button
-                            type="button"
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                            className="h-7 w-7 rounded-full bg-zinc-800 text-white"
-                          >
-                            +
-                          </button>
-                        </div>
-                        <p className="text-sm font-semibold text-white">{(item.price * item.quantity).toLocaleString('fr-FR')} MAD</p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
-                <div className="flex items-center justify-between text-sm text-zinc-400">
-                  <span>Total</span>
-                  <span className="font-semibold text-white">{total.toLocaleString('fr-FR')} MAD</span>
-                </div>
-              </div>
-            </div>
+            <CartDrawer
+              open={showCartPanel}
+              onClose={() => setShowCartPanel(false)}
+              onOpenInvoice={() => {
+                navigate('/print-invoice');
+              }}
+            />
           ) : null}
         </>
       )}
