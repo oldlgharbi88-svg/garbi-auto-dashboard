@@ -27,8 +27,9 @@ interface PaymentFormState {
   note: string;
 }
 
-type ActiveTab = 'all' | 'debts';
+type ActiveTab = 'all' | 'debts' | 'paid';
 type DebtFilter = 'all' | '7d' | '30d';
+type PaidFilter = 'all' | 'week' | 'month' | 'year';
 type Language = 'ar' | 'fr';
 
 const emptyPaymentForm: PaymentFormState = {
@@ -40,6 +41,7 @@ const emptyPaymentForm: PaymentFormState = {
 
 export default function Customers() {
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [paymentsByCustomer, setPaymentsByCustomer] = useState<Record<string | number, PaymentRecord[]>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
   const [feedback, setFeedback] = useState<string>('');
@@ -52,8 +54,12 @@ export default function Customers() {
   });
   const [activeTab, setActiveTab] = useState<ActiveTab>('all');
   const [debtFilter, setDebtFilter] = useState<DebtFilter>('all');
+  const [paidFilter, setPaidFilter] = useState<PaidFilter>('all');
+  const [paidSearch, setPaidSearch] = useState<string>('');
+  const [selectedPaidCustomerIds, setSelectedPaidCustomerIds] = useState<Array<string | number>>([]);
   const [confirmDeleteCustomer, setConfirmDeleteCustomer] = useState<Customer | null>(null);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState<boolean>(false);
+  const [confirmClearPaid, setConfirmClearPaid] = useState<boolean>(false);
   const [paymentTarget, setPaymentTarget] = useState<Customer | null>(null);
   const [paymentForm, setPaymentForm] = useState<PaymentFormState>(emptyPaymentForm);
   const [paymentSubmitting, setPaymentSubmitting] = useState<boolean>(false);
@@ -90,7 +96,8 @@ export default function Customers() {
       languageToggle: 'Français',
       tabs: {
         all: 'Tous les clients',
-        debts: 'Clients endettés'
+        debts: 'Clients endettés',
+        paid: 'Clients qui ont payé'
       },
       table: {
         number: '#',
@@ -100,18 +107,30 @@ export default function Customers() {
         lastTransaction: 'Dernière transaction',
         actions: 'Actions',
         amountOwed: 'Montant dû',
+        amountPaid: 'Montant payé',
+        lastPayment: 'Dernier paiement',
+        paymentCount: 'Nombre de paiements',
         debtSummary: 'Résumé des dettes',
+        paidSummary: 'Résumé des paiements',
         totalCustomers: 'Clients avec dette',
+        totalPaidCustomers: 'Clients réglés',
         totalAmount: 'Montant total dû',
+        totalCollected: 'Montant total collecté',
         collect: 'Recouvrer',
+        export: 'Exporter',
         deleteAll: 'Tout supprimer',
         deleteAllDisabled: 'Suppression indisponible tant qu’il existe des dettes',
+        clearFilters: 'Tout effacer',
+        clearFiltersDisabled: 'Impossible avec des lignes sélectionnées',
         delete: 'Supprimer',
         deleteTooltip: 'Impossible - dette en cours',
         call: 'Appeler',
         details: 'Détails',
+        history: 'Voir l’historique',
         collectPayment: 'Encaisser',
         paid: 'Payé',
+        paidBadge: 'Payé',
+        paidButton: '✓ Payé',
         noData: 'Aucun client trouvé.',
         confirmDeleteTitle: 'Confirmer la suppression',
         confirmDeleteMessage: 'Êtes-vous sûr de supprimer ce client ?',
@@ -133,7 +152,10 @@ export default function Customers() {
         filters: {
           all: 'Tout',
           seven: '7 derniers jours',
-          thirty: '30 derniers jours'
+          thirty: '30 derniers jours',
+          week: 'Cette semaine',
+          month: 'Ce mois',
+          year: 'Cette année'
         }
       },
       success: {
@@ -153,7 +175,8 @@ export default function Customers() {
       languageToggle: 'العربية',
       tabs: {
         all: 'جميع الزبناء',
-        debts: 'الزبناء المدينون'
+        debts: 'الزبناء المدينون',
+        paid: 'الزبناء الدي خلّصو'
       },
       table: {
         number: '#',
@@ -163,18 +186,30 @@ export default function Customers() {
         lastTransaction: 'تاريخ آخر معاملة',
         actions: 'الإجراءات',
         amountOwed: 'المبلغ المستحق',
+        amountPaid: 'المبلغ المدفوع',
+        lastPayment: 'تاريخ آخر دفعة',
+        paymentCount: 'عدد الدفعات',
         debtSummary: 'ملخص الديون',
+        paidSummary: 'ملخص المدفوعات',
         totalCustomers: 'عدد الزبناء المدينين',
+        totalPaidCustomers: 'عدد الزبناء الذين انتهوا',
         totalAmount: 'إجمالي المبلغ المستحق',
+        totalCollected: 'إجمالي المبلغ المحصل',
         collect: 'تحصيل',
+        export: 'تحميل كشف',
         deleteAll: 'حذف الكل',
         deleteAllDisabled: 'لا يمكن الحذف بينما توجد ديون مستحقة',
+        clearFilters: 'مسح الكل',
+        clearFiltersDisabled: 'غير متاح عند وجود أسطر محددة',
         delete: 'حذف',
         deleteTooltip: 'لا يمكن الحذف - يوجد ديون مستحقة',
         call: 'اتصال',
         details: 'تفاصيل',
+        history: 'عرض السجل',
         collectPayment: 'تحصيل',
         paid: 'مدفوع',
+        paidBadge: 'مدفوع',
+        paidButton: '✓ مدفوع',
         noData: 'لا يوجد زبناء.',
         confirmDeleteTitle: 'تأكيد الحذف',
         confirmDeleteMessage: 'هل أنت متأكد من حذف هذا الزبون؟',
@@ -196,7 +231,10 @@ export default function Customers() {
         filters: {
           all: 'الكل',
           seven: 'آخر 7 أيام',
-          thirty: 'آخر 30 يومًا'
+          thirty: 'آخر 30 يومًا',
+          week: 'هذا الأسبوع',
+          month: 'هذا الشهر',
+          year: 'هذا العام'
         }
       },
       success: {
@@ -218,18 +256,21 @@ export default function Customers() {
     setLoading(true);
     setError('');
 
-    const { data, error: fetchError } = await supabase
-      .from('customers')
-      .select('*')
-      .order('name', { ascending: true });
+    const [customersResponse, paymentsResponse] = await Promise.all([
+      supabase.from('customers').select('*').order('name', { ascending: true }),
+      supabase.from('payments').select('*').order('payment_date', { ascending: false })
+    ]);
 
-    if (fetchError) {
+    const { data: customersData, error: customersError } = customersResponse;
+    const { data: paymentsData, error: paymentsError } = paymentsResponse;
+
+    if (customersError || paymentsError) {
       setError(labels.errors.loadFailed);
       setLoading(false);
       return;
     }
 
-    const normalizedCustomers = (data ?? []).map((row: Record<string, unknown>) => {
+    const normalizedCustomers = (customersData ?? []).map((row: Record<string, unknown>) => {
       const rawBalance = row.balance ?? row.amount_due ?? row.amountDue ?? 0;
       const rawDate = row.last_transaction_date ?? row.lastTransactionDate ?? row.updated_at ?? row.created_at ?? null;
       return {
@@ -241,7 +282,27 @@ export default function Customers() {
       } satisfies Customer;
     });
 
+    const normalizedPayments = (paymentsData ?? []).map((row: Record<string, unknown>) => ({
+      id: row.id as string | number,
+      customer_id: row.customer_id as string | number,
+      amount: Number(row.amount ?? 0),
+      payment_method: String(row.payment_method ?? 'cash'),
+      payment_date: String(row.payment_date ?? ''),
+      note: (row.note as string | null) ?? null,
+      created_at: (row.created_at as string | null) ?? null
+    })) satisfies PaymentRecord[];
+
+    const groupedPayments: Record<string | number, PaymentRecord[]> = {};
+    normalizedPayments.forEach((payment) => {
+      const key = payment.customer_id;
+      if (!groupedPayments[key]) {
+        groupedPayments[key] = [];
+      }
+      groupedPayments[key].push(payment);
+    });
+
     setCustomers(normalizedCustomers);
+    setPaymentsByCustomer(groupedPayments);
     setLoading(false);
   }
 
@@ -249,7 +310,7 @@ export default function Customers() {
 
   const formatDate = (value: string | null) => {
     if (!value) {
-      return language === 'ar' ? '—' : '—';
+      return '—';
     }
 
     const date = new Date(value);
@@ -260,26 +321,109 @@ export default function Customers() {
     return date.toLocaleDateString(language === 'ar' ? 'ar-MA' : 'fr-MA');
   };
 
-  const hasDebt = (customer: Customer) => customer.balance > 0;
-  const debtCustomers = customers.filter((customer) => customer.balance > 0);
-  const hasAnyDebt = debtCustomers.length > 0;
+  const getPaymentSummary = (customer: Customer) => {
+    const payments = paymentsByCustomer[customer.id] ?? [];
+    const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0);
+    const lastPayment = payments[0] ?? null;
+    return { payments, totalPaid, paymentCount: payments.length, lastPayment };
+  };
 
-  const filteredDebtCustomers = debtCustomers.filter((customer) => {
-    if (debtFilter === 'all') {
+  const debtCustomers = customers.filter((customer) => {
+    const summary = getPaymentSummary(customer);
+    return customer.balance > 0 || summary.paymentCount > 0;
+  }).sort((left, right) => {
+    const leftSummary = getPaymentSummary(left);
+    const rightSummary = getPaymentSummary(right);
+    const leftSettled = left.balance <= 0 && leftSummary.paymentCount > 0;
+    const rightSettled = right.balance <= 0 && rightSummary.paymentCount > 0;
+    if (leftSettled !== rightSettled) {
+      return leftSettled ? 1 : -1;
+    }
+
+    const leftBalance = left.balance;
+    const rightBalance = right.balance;
+    if (leftBalance !== rightBalance) {
+      return rightBalance - leftBalance;
+    }
+
+    const leftDate = leftSummary.lastPayment?.payment_date ?? left.last_transaction_date ?? '';
+    const rightDate = rightSummary.lastPayment?.payment_date ?? right.last_transaction_date ?? '';
+    return new Date(rightDate).getTime() - new Date(leftDate).getTime();
+  });
+
+  const hasAnyDebt = customers.some((customer) => customer.balance > 0);
+  const totalDebtAmount = customers.reduce((sum, customer) => sum + customer.balance, 0);
+
+  const paidCustomers = customers.filter((customer) => {
+    const summary = getPaymentSummary(customer);
+    return customer.balance <= 0 && summary.paymentCount > 0;
+  }).sort((left, right) => {
+    const leftSummary = getPaymentSummary(left);
+    const rightSummary = getPaymentSummary(right);
+    const leftDate = leftSummary.lastPayment?.payment_date ?? left.last_transaction_date ?? '';
+    const rightDate = rightSummary.lastPayment?.payment_date ?? right.last_transaction_date ?? '';
+    return new Date(rightDate).getTime() - new Date(leftDate).getTime();
+  });
+
+  const totalCollectedAmount = paidCustomers.reduce((sum, customer) => sum + getPaymentSummary(customer).totalPaid, 0);
+
+  const filteredPaidCustomers = paidCustomers.filter((customer) => {
+    const summary = getPaymentSummary(customer);
+    const matchesSearch = customer.name.toLowerCase().includes(paidSearch.toLowerCase());
+
+    if (!matchesSearch) {
+      return false;
+    }
+
+    if (paidFilter === 'all') {
       return true;
     }
 
-    const date = customer.last_transaction_date ? new Date(customer.last_transaction_date) : null;
-    if (!date || Number.isNaN(date.getTime())) {
+    const baseDate = summary.lastPayment?.payment_date ?? customer.last_transaction_date ?? null;
+    if (!baseDate) {
+      return false;
+    }
+
+    const date = new Date(baseDate);
+    if (Number.isNaN(date.getTime())) {
       return false;
     }
 
     const now = new Date();
     const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-    return debtFilter === '7d' ? diffDays <= 7 : diffDays <= 30;
-  }).sort((left, right) => right.balance - left.balance);
+    if (paidFilter === 'week') {
+      return diffDays <= 7;
+    }
+    if (paidFilter === 'month') {
+      return diffDays <= 30;
+    }
+    return diffDays <= 365;
+  });
 
-  const totalDebtAmount = debtCustomers.reduce((sum, customer) => sum + customer.balance, 0);
+  const filteredDebtCustomers = debtCustomers.filter((customer) => {
+    const summary = getPaymentSummary(customer);
+    const isSettled = customer.balance <= 0 && summary.paymentCount > 0;
+    if (debtFilter === 'all') {
+      return true;
+    }
+
+    const date = customer.last_transaction_date ?? summary.lastPayment?.payment_date ?? null;
+    if (!date) {
+      return false;
+    }
+
+    const parsedDate = new Date(date);
+    if (Number.isNaN(parsedDate.getTime())) {
+      return false;
+    }
+
+    const now = new Date();
+    const diffDays = Math.floor((now.getTime() - parsedDate.getTime()) / (1000 * 60 * 60 * 24));
+    if (debtFilter === '7d') {
+      return !isSettled ? diffDays <= 7 : diffDays <= 7;
+    }
+    return !isSettled ? diffDays <= 30 : diffDays <= 30;
+  });
 
   const handleDeleteCustomer = async (customer: Customer) => {
     if (customer.balance > 0) {
@@ -358,7 +502,7 @@ export default function Customers() {
     }
 
     const nextBalance = Math.max(0, paymentTarget.balance - amount);
-    const { error: updateError } = await supabase.from('customers').update({ balance: nextBalance }).eq('id', paymentTarget.id);
+    const { error: updateError } = await supabase.from('customers').update({ balance: nextBalance, last_transaction_date: paymentForm.paymentDate }).eq('id', paymentTarget.id);
     setPaymentSubmitting(false);
 
     if (updateError) {
@@ -400,6 +544,17 @@ export default function Customers() {
     })));
   };
 
+  const handleClearPaidFilters = () => {
+    setPaidSearch('');
+    setPaidFilter('all');
+    setSelectedPaidCustomerIds([]);
+    setConfirmClearPaid(false);
+  };
+
+  const togglePaidSelection = (customerId: string | number) => {
+    setSelectedPaidCustomerIds((current) => (current.includes(customerId) ? current.filter((value) => value !== customerId) : [...current, customerId]));
+  };
+
   return (
     <div className="rounded-3xl border border-outline-variant bg-surface-container p-6 shadow-2xl shadow-black/20">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
@@ -423,17 +578,26 @@ export default function Customers() {
         <button
           type="button"
           onClick={() => setActiveTab('all')}
-          className={`rounded-t-lg border-b-2 px-4 py-2 text-sm font-semibold transition ${activeTab === 'all' ? 'border-red-600 text-red-600' : 'border-transparent text-on-surface-variant'}`}
+          className={`rounded-t-lg border-b-2 px-4 py-2 text-sm font-semibold transition-all duration-300 ${activeTab === 'all' ? 'border-red-600 text-red-600' : 'border-transparent text-on-surface-variant'}`}
         >
           {labels.tabs.all}
+          <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">{customers.length}</span>
         </button>
         <button
           type="button"
           onClick={() => setActiveTab('debts')}
-          className={`rounded-t-lg border-b-2 px-4 py-2 text-sm font-semibold transition ${activeTab === 'debts' ? 'border-red-600 text-red-600' : 'border-transparent text-on-surface-variant'}`}
+          className={`rounded-t-lg border-b-2 px-4 py-2 text-sm font-semibold transition-all duration-300 ${activeTab === 'debts' ? 'border-red-600 text-red-600' : 'border-transparent text-on-surface-variant'}`}
         >
           {labels.tabs.debts}
           <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">{debtCustomers.length}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('paid')}
+          className={`rounded-t-lg border-b-2 px-4 py-2 text-sm font-semibold transition-all duration-300 ${activeTab === 'paid' ? 'border-green-600 text-green-600' : 'border-transparent text-on-surface-variant'}`}
+        >
+          {labels.tabs.paid}
+          <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">{paidCustomers.length}</span>
         </button>
       </div>
 
@@ -531,13 +695,15 @@ export default function Customers() {
             </table>
           </div>
         </div>
-      ) : (
+      ) : null}
+
+      {activeTab === 'debts' ? (
         <div>
           <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-red-700">{labels.table.debtSummary}</h2>
-                <p className="mt-1 text-sm text-red-600">{labels.table.totalCustomers}: {debtCustomers.length}</p>
+                <p className="mt-1 text-sm text-red-600">{labels.table.totalCustomers}: {debtCustomers.filter((customer) => customer.balance > 0).length}</p>
               </div>
               <div className="text-right">
                 <p className="text-sm text-red-600">{labels.table.totalAmount}</p>
@@ -557,7 +723,7 @@ export default function Customers() {
                 key={option}
                 type="button"
                 onClick={() => setDebtFilter(option)}
-                className={`rounded-full px-3 py-2 text-sm font-semibold ${debtFilter === option ? 'bg-red-600 text-white' : 'border border-outline-variant bg-surface-container-high text-on-surface'}`}
+                className={`rounded-full px-3 py-2 text-sm font-semibold transition-all duration-300 ${debtFilter === option ? 'bg-red-600 text-white' : 'border border-outline-variant bg-surface-container-high text-on-surface'}`}
               >
                 {labels.table.filters[option === 'all' ? 'all' : option === '7d' ? 'seven' : 'thirty']}
               </button>
@@ -582,34 +748,168 @@ export default function Customers() {
                     <td colSpan={6} className="px-4 py-10 text-center text-sm text-on-surface-variant">{labels.table.noData}</td>
                   </tr>
                 ) : (
-                  filteredDebtCustomers.map((customer, index) => (
-                    <tr key={customer.id}>
-                      <td className="px-4 py-4 text-sm text-on-surface-variant">{index + 1}</td>
-                      <td className="px-4 py-4 text-sm font-medium text-on-surface">{customer.name}</td>
-                      <td className="px-4 py-4 text-sm text-on-surface-variant">{customer.phone || '—'}</td>
-                      <td className="px-4 py-4 text-sm font-semibold text-red-600">{formatCurrency(customer.balance)}</td>
-                      <td className="px-4 py-4 text-sm text-on-surface-variant">{formatDate(customer.last_transaction_date)}</td>
-                      <td className="px-4 py-4">
-                        <div className="flex flex-wrap gap-2">
-                          <button type="button" onClick={() => handleOpenPaymentModal(customer)} className="rounded-full bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700">
-                            {labels.table.collectPayment}
-                          </button>
-                          <a href={`tel:${customer.phone || ''}`} className="rounded-full border border-outline-variant bg-surface-container-high px-3 py-2 text-sm font-semibold text-on-surface">
-                            {labels.table.call}
-                          </a>
-                          <button type="button" onClick={() => void handleOpenHistory(customer)} className="rounded-full border border-outline-variant bg-surface-container-high px-3 py-2 text-sm font-semibold text-on-surface">
-                            {labels.table.details}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  filteredDebtCustomers.map((customer, index) => {
+                    const summary = getPaymentSummary(customer);
+                    const isSettled = customer.balance <= 0 && summary.paymentCount > 0;
+                    return (
+                      <tr key={customer.id} className={isSettled ? 'border-l-4 border-green-500 bg-green-900/20' : ''}>
+                        <td className="px-4 py-4 text-sm text-on-surface-variant">{index + 1}</td>
+                        <td className="px-4 py-4 text-sm font-medium text-on-surface">
+                          <div className="flex items-center gap-2">
+                            <span className={isSettled ? 'line-through opacity-80' : ''}>{customer.name}</span>
+                            {isSettled ? (
+                              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700">{labels.table.paidBadge}</span>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 text-sm text-on-surface-variant">{customer.phone || '—'}</td>
+                        <td className={`px-4 py-4 text-sm font-semibold ${isSettled ? 'text-green-700 line-through' : 'text-red-600'}`}>
+                          {formatCurrency(customer.balance)}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-on-surface-variant">{formatDate(customer.last_transaction_date ?? summary.lastPayment?.payment_date ?? null)}</td>
+                        <td className="px-4 py-4">
+                          <div className="flex flex-wrap gap-2">
+                            {isSettled ? (
+                              <button type="button" onClick={() => void handleOpenHistory(customer)} className="rounded-full border border-green-200 bg-green-50 px-3 py-2 text-sm font-semibold text-green-700">
+                                {labels.table.history}
+                              </button>
+                            ) : (
+                              <>
+                                <button type="button" onClick={() => handleOpenPaymentModal(customer)} className="rounded-full bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700">
+                                  {labels.table.collectPayment}
+                                </button>
+                                <button type="button" onClick={() => void handleOpenHistory(customer)} className="rounded-full border border-outline-variant bg-surface-container-high px-3 py-2 text-sm font-semibold text-on-surface">
+                                  {labels.table.details}
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
         </div>
-      )}
+      ) : null}
+
+      {activeTab === 'paid' ? (
+        <div>
+          <div className="mb-5 rounded-2xl border border-green-200 bg-green-50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-green-700">{labels.table.paidSummary}</h2>
+                <p className="mt-1 text-sm text-green-600">{labels.table.totalPaidCustomers}: {paidCustomers.length}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-green-600">{labels.table.totalCollected}</p>
+                <p className="text-xl font-semibold text-green-700">{formatCurrency(totalCollectedAmount)}</p>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button type="button" className="rounded-full border border-green-200 bg-white px-3 py-2 text-sm font-semibold text-green-700">
+                {labels.table.export}
+              </button>
+            </div>
+          </div>
+
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="search"
+                value={paidSearch}
+                onChange={(event) => setPaidSearch(event.target.value)}
+                placeholder={language === 'ar' ? 'ابحث بالاسم…' : 'Rechercher par nom…'}
+                className="rounded-full border border-outline-variant bg-surface-container-high px-3 py-2 text-sm text-on-surface"
+              />
+              {(['all', 'week', 'month', 'year'] as PaidFilter[]).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setPaidFilter(option)}
+                  className={`rounded-full px-3 py-2 text-sm font-semibold transition-all duration-300 ${paidFilter === option ? 'bg-green-600 text-white' : 'border border-outline-variant bg-surface-container-high text-on-surface'}`}
+                >
+                  {labels.table.filters[option === 'all' ? 'all' : option === 'week' ? 'week' : option === 'month' ? 'month' : 'year']}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setConfirmClearPaid(true)}
+              disabled={selectedPaidCustomerIds.length > 0}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${selectedPaidCustomerIds.length > 0 ? 'cursor-not-allowed border border-outline-variant bg-surface-container-high text-on-surface-variant' : 'border border-green-200 bg-green-50 text-green-700 hover:bg-green-100'}`}
+            >
+              {labels.table.clearFilters}
+            </button>
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-outline-variant">
+            <table className="min-w-full divide-y divide-outline-variant">
+              <thead className="bg-surface-container-high">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
+                    <input
+                      type="checkbox"
+                      checked={selectedPaidCustomerIds.length === filteredPaidCustomers.length && filteredPaidCustomers.length > 0}
+                      onChange={() => {
+                        if (selectedPaidCustomerIds.length === filteredPaidCustomers.length) {
+                          setSelectedPaidCustomerIds([]);
+                        } else {
+                          setSelectedPaidCustomerIds(filteredPaidCustomers.map((customer) => customer.id));
+                        }
+                      }}
+                      className="rounded border-outline-variant"
+                    />
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] text-on-surface-variant">{labels.table.number}</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] text-on-surface-variant">{labels.table.name}</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] text-on-surface-variant">{labels.table.phone}</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] text-on-surface-variant">{labels.table.amountPaid}</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] text-on-surface-variant">{labels.table.lastPayment}</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] text-on-surface-variant">{labels.table.paymentCount}</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] text-on-surface-variant">{labels.table.actions}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-outline-variant bg-surface-container">
+                {filteredPaidCustomers.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-10 text-center text-sm text-on-surface-variant">{labels.table.noData}</td>
+                  </tr>
+                ) : (
+                  filteredPaidCustomers.map((customer, index) => {
+                    const summary = getPaymentSummary(customer);
+                    return (
+                      <tr key={customer.id}>
+                        <td className="px-4 py-4 text-sm text-on-surface-variant">
+                          <input
+                            type="checkbox"
+                            checked={selectedPaidCustomerIds.includes(customer.id)}
+                            onChange={() => togglePaidSelection(customer.id)}
+                            className="rounded border-outline-variant"
+                          />
+                        </td>
+                        <td className="px-4 py-4 text-sm text-on-surface-variant">{index + 1}</td>
+                        <td className="px-4 py-4 text-sm font-medium text-on-surface">{customer.name}</td>
+                        <td className="px-4 py-4 text-sm text-on-surface-variant">{customer.phone || '—'}</td>
+                        <td className="px-4 py-4 text-sm font-semibold text-green-700">{formatCurrency(summary.totalPaid)}</td>
+                        <td className="px-4 py-4 text-sm text-on-surface-variant">{formatDate(summary.lastPayment?.payment_date ?? customer.last_transaction_date ?? null)}</td>
+                        <td className="px-4 py-4 text-sm text-on-surface-variant">{summary.paymentCount}</td>
+                        <td className="px-4 py-4">
+                          <button type="button" onClick={() => void handleOpenHistory(customer)} className="rounded-full border border-green-200 bg-green-50 px-3 py-2 text-sm font-semibold text-green-700">
+                            {labels.table.history}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
 
       {modalMode ? (
         <CustomerFormModal
@@ -651,6 +951,23 @@ export default function Customers() {
               </button>
               <button type="button" onClick={() => void handleDeleteAllCustomers()} className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">
                 {labels.table.deleteLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {confirmClearPaid ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-3xl bg-surface-container p-6 shadow-2xl">
+            <h3 className="text-xl font-semibold text-on-surface">{labels.table.clearFilters}</h3>
+            <p className="mt-3 text-sm text-on-surface-variant">{language === 'ar' ? 'هل تريد مسح المرشحات؟' : 'Voulez-vous effacer les filtres ?'}</p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" onClick={() => setConfirmClearPaid(false)} className="rounded-full border border-outline-variant bg-surface-container-high px-4 py-2 text-sm font-semibold text-on-surface">
+                {labels.table.cancel}
+              </button>
+              <button type="button" onClick={() => handleClearPaidFilters()} className="rounded-full bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700">
+                {labels.table.clearFilters}
               </button>
             </div>
           </div>
