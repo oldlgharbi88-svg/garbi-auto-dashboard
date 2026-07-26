@@ -178,7 +178,7 @@ export default function App() {
             </div>
           </header>
 
-          <PublicCatalog />
+          <PublicCatalog canEditPrices={currentRole === 'manager'} />
 
           {showCartPanel ? (
             <CartDrawer

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
 import { useCart } from '../context/CartContext';
 
@@ -14,12 +14,21 @@ interface CatalogItem {
 
 const categoryOptions = ['BMW', 'Mercedes', 'Audi', 'Peugeot', 'Renault', 'Volkswagen'];
 
-export default function PublicCatalog() {
+interface PublicCatalogProps {
+  canEditPrices?: boolean;
+}
+
+export default function PublicCatalog({ canEditPrices = false }: PublicCatalogProps) {
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedItem, setSelectedItem] = useState<CatalogItem | null>(null);
+  const [priceEditTarget, setPriceEditTarget] = useState<CatalogItem | null>(null);
+  const [newPriceInput, setNewPriceInput] = useState('');
+  const [priceError, setPriceError] = useState('');
+  const [isSavingPrice, setIsSavingPrice] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const { addToCart } = useCart();
 
   useEffect(() => {
@@ -52,10 +61,69 @@ export default function PublicCatalog() {
     });
   }, [items, search, selectedCategories]);
 
+  useEffect(() => {
+    if (!statusMessage) {
+      return undefined;
+    }
+
+    const timerId = window.setTimeout(() => setStatusMessage(null), 2400);
+    return () => window.clearTimeout(timerId);
+  }, [statusMessage]);
+
   const toggleCategory = (category: string) => {
     setSelectedCategories((current) =>
       current.includes(category) ? current.filter((entry) => entry !== category) : [...current, category]
     );
+  };
+
+  const openPriceEditor = (item: CatalogItem) => {
+    setPriceEditTarget(item);
+    setNewPriceInput(String(item.sellingprice));
+    setPriceError('');
+  };
+
+  const closePriceEditor = () => {
+    setPriceEditTarget(null);
+    setNewPriceInput('');
+    setPriceError('');
+    setIsSavingPrice(false);
+  };
+
+  const handleSavePrice = async (event: FormEvent) => {
+    event.preventDefault();
+
+    if (!priceEditTarget) {
+      return;
+    }
+
+    const nextPrice = Number.parseFloat(newPriceInput);
+    if (!Number.isFinite(nextPrice) || nextPrice <= 0) {
+      setPriceError('Please enter a positive price.');
+      return;
+    }
+
+    setIsSavingPrice(true);
+    setPriceError('');
+
+    const { error } = await supabase
+      .from('inventory')
+      .update({ sellingprice: nextPrice })
+      .eq('id', priceEditTarget.id)
+      .select()
+      .single();
+
+    if (error) {
+      setPriceError('Unable to update the price right now.');
+      setIsSavingPrice(false);
+      return;
+    }
+
+    setItems((current) =>
+      current.map((item) => (item.id === priceEditTarget.id ? { ...item, sellingprice: nextPrice } : item))
+    );
+    setSelectedItem((current) => (current && current.id === priceEditTarget.id ? { ...current, sellingprice: nextPrice } : current));
+    setStatusMessage(`Price updated for ${priceEditTarget.name}.`);
+    closePriceEditor();
   };
 
   return (
@@ -130,8 +198,19 @@ export default function PublicCatalog() {
                   key={item.id}
                   className="group overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900/80 shadow-lg shadow-black/20 transition hover:-translate-y-1"
                 >
-                  <button type="button" onClick={() => setSelectedItem(item)} className="block w-full text-left">
-                    <div className="relative aspect-square overflow-hidden bg-zinc-800">
+                  <div className="relative aspect-square overflow-hidden bg-zinc-800">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setSelectedItem(item)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setSelectedItem(item);
+                        }
+                      }}
+                      className="h-full w-full cursor-pointer"
+                    >
                       {item.image_url ? (
                         <img src={item.image_url} alt={item.name} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
                       ) : (
@@ -143,7 +222,22 @@ export default function PublicCatalog() {
                         </span>
                       </div>
                     </div>
-                  </button>
+
+                    {canEditPrices ? (
+                      <button
+                        type="button"
+                        aria-label={`Edit price for ${item.name}`}
+                        title={`Edit price for ${item.name}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openPriceEditor(item);
+                        }}
+                        className="absolute right-3 top-3 rounded-full border border-sky-400/40 bg-sky-500/20 p-2 text-sky-200 backdrop-blur transition hover:-translate-y-0.5 hover:bg-sky-500/30 hover:text-white"
+                      >
+                        <span className="text-sm">✎</span>
+                      </button>
+                    ) : null}
+                  </div>
 
                   <div className="space-y-4 p-5">
                     <div>
@@ -194,6 +288,71 @@ export default function PublicCatalog() {
           </div>
         )}
       </main>
+
+      {priceEditTarget ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 py-6 backdrop-blur-sm">
+          <div className="modal-fade-in w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl shadow-black/60">
+            <div className="mb-5">
+              <p className="text-xs uppercase tracking-[0.35em] text-sky-400">Edit price</p>
+              <h3 className="mt-2 text-xl font-semibold text-white">{priceEditTarget.name}</h3>
+              <p className="mt-1 text-sm text-zinc-400">{priceEditTarget.reference}</p>
+            </div>
+
+            <form onSubmit={handleSavePrice} className="space-y-4">
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
+                <p className="text-sm text-zinc-400">Current price</p>
+                <div className="mt-2 flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2 text-white">
+                  <span>{priceEditTarget.sellingprice.toLocaleString('fr-FR')} MAD</span>
+                  <span className="rounded-full bg-sky-500/15 px-2.5 py-1 text-xs font-semibold text-sky-300">EUR</span>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="new-price" className="mb-2 block text-sm font-medium text-zinc-200">
+                  New price
+                </label>
+                <div className="flex items-center gap-3 rounded-2xl border border-zinc-700 bg-zinc-950/70 px-4 py-3">
+                  <input
+                    id="new-price"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0.01"
+                    value={newPriceInput}
+                    onChange={(event) => {
+                      setNewPriceInput(event.target.value);
+                      if (priceError) {
+                        setPriceError('');
+                      }
+                    }}
+                    className="w-full bg-transparent text-white outline-none"
+                    placeholder="0.00"
+                  />
+                  <span className="text-sm font-semibold text-zinc-400">EUR</span>
+                </div>
+                {priceError ? <p className="mt-2 text-sm text-rose-400">{priceError}</p> : null}
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closePriceEditor}
+                  className="rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-200 transition hover:border-zinc-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingPrice}
+                  className="rounded-2xl bg-sky-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isSavingPrice ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
 
       {selectedItem ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 py-6">
@@ -255,6 +414,12 @@ export default function PublicCatalog() {
               </div>
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {statusMessage ? (
+        <div className="fixed bottom-4 right-4 z-[70] rounded-full border border-emerald-500/30 bg-emerald-500/15 px-4 py-3 text-sm font-medium text-emerald-300 shadow-lg shadow-black/30">
+          {statusMessage}
         </div>
       ) : null}
     </div>
