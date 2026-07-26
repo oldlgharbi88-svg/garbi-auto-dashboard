@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import CustomerFormModal from './CustomerFormModal';
 import { supabase } from '../lib/supabase';
 
 interface Customer {
@@ -61,6 +62,7 @@ export default function Customers() {
   const [historyLoading, setHistoryLoading] = useState<boolean>(false);
   const [deletingCustomerId, setDeletingCustomerId] = useState<string | number | null>(null);
   const [deletingAll, setDeletingAll] = useState<boolean>(false);
+  const [modalMode, setModalMode] = useState<'regular' | 'credit' | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -451,15 +453,33 @@ export default function Customers() {
         <div>
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm text-on-surface-variant">{labels.subtitle}</div>
-            <button
-              type="button"
-              onClick={() => setConfirmBulkDelete(true)}
-              disabled={hasAnyDebt || deletingAll}
-              title={hasAnyDebt ? labels.table.deleteAllDisabled : ''}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${hasAnyDebt || deletingAll ? 'cursor-not-allowed border border-outline-variant bg-surface-container-high text-on-surface-variant' : 'border border-red-200 bg-red-50 text-red-700 hover:bg-red-100'}`}
-            >
-              {deletingAll ? '…' : labels.table.deleteAll}
-            </button>
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-outline-variant bg-surface-container-high p-2">
+              <button
+                type="button"
+                onClick={() => setModalMode('regular')}
+                className="flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+              >
+                <span className="text-base">+</span>
+                <span>{language === 'ar' ? 'إضافة زبون' : 'Ajouter un client'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setModalMode('credit')}
+                className="flex items-center gap-2 rounded-full border-2 border-red-600 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-600 hover:text-white"
+              >
+                <span className="text-base">💰</span>
+                <span>{language === 'ar' ? 'إضافة زبون مدين' : 'Ajouter un client endetté'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmBulkDelete(true)}
+                disabled={hasAnyDebt || deletingAll}
+                title={hasAnyDebt ? labels.table.deleteAllDisabled : ''}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${hasAnyDebt || deletingAll ? 'cursor-not-allowed border border-outline-variant bg-surface-container-high text-on-surface-variant' : 'border border-red-200 bg-red-50 text-red-700 hover:bg-red-100'}`}
+              >
+                {deletingAll ? '…' : labels.table.deleteAll}
+              </button>
+            </div>
           </div>
 
           <div className="overflow-hidden rounded-2xl border border-outline-variant">
@@ -590,6 +610,18 @@ export default function Customers() {
           </div>
         </div>
       )}
+
+      {modalMode ? (
+        <CustomerFormModal
+          mode={modalMode}
+          language={language}
+          onClose={() => setModalMode(null)}
+          onSuccess={() => {
+            void loadCustomers();
+            setFeedback(modalMode === 'regular' ? (language === 'ar' ? 'تمت إضافة الزبون بنجاح' : 'Client ajouté avec succès') : (language === 'ar' ? 'تمت إضافة الزبون المدين بنجاح' : 'Client endetté ajouté avec succès'));
+          }}
+        />
+      ) : null}
 
       {confirmDeleteCustomer ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
