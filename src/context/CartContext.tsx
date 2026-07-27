@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
+const CART_STORAGE_KEY = 'garbi-cart-items-v1';
+
 export interface CartItem {
   id: string;
   name: string;
@@ -8,6 +10,9 @@ export interface CartItem {
   image_url: string | null;
   quantity: number;
   stock: number;
+  price_modified?: boolean;
+  original_price?: number;
+  modification_reason?: string | null;
 }
 
 interface CartItemInput {
@@ -28,8 +33,10 @@ interface CartContextValue {
   addToCart: (item: CartItemInput) => void;
   removeFromCart: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
+  updateCartItemPrice: (id: string, newPrice: number, options?: { reason?: string; priceModified?: boolean; originalPrice?: number }) => void;
   clearCart: () => void;
   clearToast: () => void;
+  showToast: (message: string) => void;
 }
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
@@ -40,12 +47,36 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const timeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    try {
+      const savedCart = window.localStorage.getItem(CART_STORAGE_KEY);
+      if (savedCart) {
+        const parsed = JSON.parse(savedCart) as CartItem[];
+        if (Array.isArray(parsed)) {
+          setCartItems(parsed);
+        }
+      }
+    } catch {
+      window.localStorage.removeItem(CART_STORAGE_KEY);
+    }
+
     return () => {
       if (timeoutRef.current !== null) {
         window.clearTimeout(timeoutRef.current);
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
+  }, [cartItems]);
 
   const showToast = (message: string) => {
     if (timeoutRef.current !== null) {
@@ -109,8 +140,31 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  const updateCartItemPrice = (id: string, newPrice: number, options?: { reason?: string; priceModified?: boolean; originalPrice?: number }) => {
+    const normalizedPrice = Number.isFinite(newPrice) ? Math.max(newPrice, 0.01) : 0.01;
+
+    setCartItems((previous) =>
+      previous.map((entry) => {
+        if (entry.id !== id) {
+          return entry;
+        }
+
+        return {
+          ...entry,
+          price: normalizedPrice,
+          original_price: entry.original_price ?? options?.originalPrice ?? entry.price,
+          price_modified: options?.priceModified ?? true,
+          modification_reason: options?.reason ?? entry.modification_reason ?? null
+        };
+      })
+    );
+  };
+
   const clearCart = () => {
     setCartItems([]);
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(CART_STORAGE_KEY);
+    }
   };
 
   const clearToast = () => {
@@ -130,8 +184,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
         addToCart,
         removeFromCart,
         updateQuantity,
+        updateCartItemPrice,
         clearCart,
-        clearToast
+        clearToast,
+        showToast
       }}
     >
       {children}

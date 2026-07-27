@@ -187,6 +187,7 @@ export default function App() {
               onOpenInvoice={() => {
                 navigate('/print-invoice');
               }}
+              canEditPrices={currentRole === 'manager'}
             />
           ) : null}
         </>
