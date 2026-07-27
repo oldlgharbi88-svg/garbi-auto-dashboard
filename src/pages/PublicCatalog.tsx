@@ -28,7 +28,7 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
   const [newPriceInput, setNewPriceInput] = useState('');
   const [priceError, setPriceError] = useState('');
   const [isSavingPrice, setIsSavingPrice] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const { addToCart } = useCart();
 
   useEffect(() => {
@@ -62,13 +62,13 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
   }, [items, search, selectedCategories]);
 
   useEffect(() => {
-    if (!statusMessage) {
+    if (!toastMessage) {
       return undefined;
     }
 
-    const timerId = window.setTimeout(() => setStatusMessage(null), 2400);
+    const timerId = window.setTimeout(() => setToastMessage(null), 2400);
     return () => window.clearTimeout(timerId);
-  }, [statusMessage]);
+  }, [toastMessage]);
 
   const toggleCategory = (category: string) => {
     setSelectedCategories((current) =>
@@ -96,9 +96,10 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
       return;
     }
 
-    const nextPrice = Number.parseFloat(newPriceInput);
-    if (!Number.isFinite(nextPrice) || nextPrice <= 0) {
-      setPriceError('Please enter a positive price.');
+    const trimmedValue = newPriceInput.trim();
+    const nextPrice = Number.parseFloat(trimmedValue);
+    if (!trimmedValue || !Number.isFinite(nextPrice) || nextPrice <= 0) {
+      setPriceError('Please enter a positive price in MAD.');
       return;
     }
 
@@ -122,7 +123,7 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
       current.map((item) => (item.id === priceEditTarget.id ? { ...item, sellingprice: nextPrice } : item))
     );
     setSelectedItem((current) => (current && current.id === priceEditTarget.id ? { ...current, sellingprice: nextPrice } : current));
-    setStatusMessage(`Price updated for ${priceEditTarget.name}.`);
+    setToastMessage(`Price updated for ${priceEditTarget.name}.`);
     closePriceEditor();
   };
 
@@ -223,20 +224,21 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
                       </div>
                     </div>
 
-                    {canEditPrices ? (
-                      <button
-                        type="button"
-                        aria-label={`Edit price for ${item.name}`}
-                        title={`Edit price for ${item.name}`}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          openPriceEditor(item);
-                        }}
-                        className="absolute right-3 top-3 rounded-full border border-sky-400/40 bg-sky-500/20 p-2 text-sky-200 backdrop-blur transition hover:-translate-y-0.5 hover:bg-sky-500/30 hover:text-white"
-                      >
-                        <span className="text-sm">✎</span>
-                      </button>
-                    ) : null}
+                    <button
+                      type="button"
+                      aria-label={`Edit price for ${item.name}`}
+                      title={`Edit price for ${item.name}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openPriceEditor(item);
+                      }}
+                      className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-red-500/30 bg-red-600/90 text-white shadow-lg shadow-black/30 backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:bg-red-500 hover:shadow-red-600/20"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                      </svg>
+                    </button>
                   </div>
 
                   <div className="space-y-4 p-5">
@@ -293,7 +295,7 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 py-6 backdrop-blur-sm">
           <div className="modal-fade-in w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl shadow-black/60">
             <div className="mb-5">
-              <p className="text-xs uppercase tracking-[0.35em] text-sky-400">Edit price</p>
+              <p className="text-xs uppercase tracking-[0.35em] text-red-400">Edit price</p>
               <h3 className="mt-2 text-xl font-semibold text-white">{priceEditTarget.name}</h3>
               <p className="mt-1 text-sm text-zinc-400">{priceEditTarget.reference}</p>
             </div>
@@ -303,7 +305,7 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
                 <p className="text-sm text-zinc-400">Current price</p>
                 <div className="mt-2 flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2 text-white">
                   <span>{priceEditTarget.sellingprice.toLocaleString('fr-FR')} MAD</span>
-                  <span className="rounded-full bg-sky-500/15 px-2.5 py-1 text-xs font-semibold text-sky-300">EUR</span>
+                  <span className="rounded-full bg-red-500/15 px-2.5 py-1 text-xs font-semibold text-red-300">MAD</span>
                 </div>
               </div>
 
@@ -328,7 +330,7 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
                     className="w-full bg-transparent text-white outline-none"
                     placeholder="0.00"
                   />
-                  <span className="text-sm font-semibold text-zinc-400">EUR</span>
+                  <span className="text-sm font-semibold text-zinc-400">MAD</span>
                 </div>
                 {priceError ? <p className="mt-2 text-sm text-rose-400">{priceError}</p> : null}
               </div>
@@ -344,13 +346,19 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
                 <button
                   type="submit"
                   disabled={isSavingPrice}
-                  className="rounded-2xl bg-sky-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="rounded-2xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {isSavingPrice ? 'Saving...' : 'Save'}
                 </button>
               </div>
             </form>
           </div>
+        </div>
+      ) : null}
+
+      {toastMessage ? (
+        <div className="fixed bottom-4 right-4 z-[70] rounded-2xl border border-red-500/30 bg-zinc-900/95 px-4 py-3 text-sm font-semibold text-white shadow-2xl shadow-black/40 backdrop-blur">
+          {toastMessage}
         </div>
       ) : null}
 
@@ -417,9 +425,9 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
         </div>
       ) : null}
 
-      {statusMessage ? (
+      {toastMessage ? (
         <div className="fixed bottom-4 right-4 z-[70] rounded-full border border-emerald-500/30 bg-emerald-500/15 px-4 py-3 text-sm font-medium text-emerald-300 shadow-lg shadow-black/30">
-          {statusMessage}
+          {toastMessage}
         </div>
       ) : null}
     </div>
