@@ -99,9 +99,9 @@ export default function InvoicePrint({
 }: InvoicePrintProps) {
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<number>(sampleInvoices[0].id);
 
-  const storeName = typeof window !== 'undefined' ? window.localStorage.getItem('storeName') ?? 'Garbi Auto Logistique' : 'Garbi Auto Logistique';
-  const storeAddress = typeof window !== 'undefined' ? window.localStorage.getItem('storeAddress') ?? 'Lot 14, Zone Industrielle, Casablanca' : 'Lot 14, Zone Industrielle, Casablanca';
-  const storePhone = typeof window !== 'undefined' ? window.localStorage.getItem('phoneNumber') ?? '+212 5 22 11 22 33' : '+212 5 22 11 22 33';
+  const storeName = 'Garbi Auto Logistique';
+  const storeAddress = 'Khmis Zemamra, Zone Industrielle, en face de l\'Auto et Ould Lbiad';
+  const storePhone = '0678186802 / 0667440034';
   const taxId = typeof window !== 'undefined' ? window.localStorage.getItem('taxId') ?? 'ICE 0011223344' : 'ICE 0011223344';
 
   const selectedInvoice = useMemo(() => {
@@ -162,10 +162,13 @@ export default function InvoicePrint({
                 <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-outline-variant bg-surface-container-high text-lg font-semibold text-on-surface">
                   GA
                 </div>
-                <div>
+                <div className="space-y-1">
                   <h2 className="text-2xl font-semibold text-on-surface">{selectedInvoice.storeName}</h2>
-                  <p className="mt-1 text-sm text-on-surface-variant">{selectedInvoice.storeAddress}</p>
-                  <p className="text-sm text-on-surface-variant">{selectedInvoice.storePhone}</p>
+                  <div className="text-sm text-on-surface-variant">
+                    <p>📞 0678186802</p>
+                    <p>📞 0667440034</p>
+                    <p>📍 {selectedInvoice.storeAddress}</p>
+                  </div>
                   <p className="text-sm text-on-surface-variant">Tax ID: {selectedInvoice.taxId}</p>
                 </div>
               </div>
