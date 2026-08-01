@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
 import { processImage } from '../utils/imageProcessor';
+import RestockModal from './RestockModal';
 
 interface InventoryItem {
   id: number | string;
@@ -12,6 +13,10 @@ interface InventoryItem {
   sellingprice: number;
   quantity: number;
   image_url?: string | null;
+  archived?: boolean | null;
+  last_restock_date?: string | null;
+  total_sold?: number | null;
+  low_stock_threshold?: number | null;
 }
 
 interface InventoryInsert {
@@ -22,6 +27,9 @@ interface InventoryInsert {
   sellingprice: number;
   quantity: number;
   image_url?: string | null;
+  archived?: boolean;
+  total_sold?: number;
+  low_stock_threshold?: number;
 }
 
 interface InventoryFormState {
@@ -83,6 +91,14 @@ export default function Inventory() {
   const [processingError, setProcessingError] = useState<string>('');
   const [imageUploadMode, setImageUploadMode] = useState<'original' | 'processed'>('original');
   const [imageProcessingCache, setImageProcessingCache] = useState<Record<string, Blob>>({});
+  const [activeTab, setActiveTab] = useState<'all' | 'in-stock' | 'low-stock' | 'out-of-stock'>('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [selectedIds, setSelectedIds] = useState<(number | string)[]>([]);
+  const [restockTarget, setRestockTarget] = useState<InventoryItem | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<InventoryItem | null>(null);
+  const [historyEntries, setHistoryEntries] = useState<Array<{ id: string; quantity_ordered: number; status: string; created_at?: string | null; supplier?: string | null; note?: string | null }>>([]);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const imageFileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -129,7 +145,29 @@ export default function Inventory() {
         selling: 'Prix de vente',
         quantity: 'Quantité',
         actions: 'Actions',
-        lowStock: 'Stock faible'
+        lowStock: 'Stock faible',
+        outOfStock: 'Rupture',
+        bulk: 'Commander la sélection'
+      },
+      tabs: {
+        all: 'Toutes les pièces',
+        inStock: 'En stock',
+        lowStock: 'Stock faible',
+        outOfStock: 'Pièces en rupture'
+      },
+      restock: {
+        summaryTitle: 'Pièces en rupture',
+        count: 'Pièces à réapprovisionner',
+        totalValue: 'Valeur estimée',
+        export: 'Exporter la liste',
+        orderAll: 'Commander tout',
+        selectAll: 'Tout sélectionner',
+        clearSelection: 'Effacer la sélection',
+        history: 'Historique',
+        archive: 'Archiver',
+        restock: 'Réapprovisionner',
+        order: 'Commander',
+        viewHistory: 'Voir l’historique'
       },
       form: {
         title: 'Ajouter une nouvelle pièce',
@@ -176,7 +214,29 @@ export default function Inventory() {
         selling: 'سعر البيع',
         quantity: 'الكمية',
         actions: 'الإجراءات',
-        lowStock: 'مخزون منخفض'
+        lowStock: 'مخزون منخفض',
+        outOfStock: 'نفد المخزون',
+        bulk: 'تنفيذ التحديد'
+      },
+      tabs: {
+        all: 'كل القطع',
+        inStock: 'متوفرة',
+        lowStock: 'مخزون ضعيف',
+        outOfStock: 'القطع اللي نفدت'
+      },
+      restock: {
+        summaryTitle: 'القطع اللي نفدت',
+        count: 'قطع تحتاج تجهيز',
+        totalValue: 'القيمة المقدرة',
+        export: 'تصدير القائمة',
+        orderAll: 'تجهيز الكل',
+        selectAll: 'اختيار الكل',
+        clearSelection: 'إلغاء التحديد',
+        history: 'السجل',
+        archive: 'أرشفة',
+        restock: 'تجهيز',
+        order: 'تجهيز',
+        viewHistory: 'عرض السجل'
       },
       form: {
         title: 'إضافة قطعة جديدة',
@@ -453,6 +513,15 @@ export default function Inventory() {
   };
 
   useEffect(() => {
+    if (!toastMessage) {
+      return undefined;
+    }
+
+    const timerId = window.setTimeout(() => setToastMessage(null), 2200);
+    return () => window.clearTimeout(timerId);
+  }, [toastMessage]);
+
+  useEffect(() => {
     fetchInventory();
 
     const inventoryChannel = supabase
@@ -475,10 +544,115 @@ export default function Inventory() {
     };
   }, []);
 
-  const filteredParts = parts.filter((item) => {
+  const visibleParts = useMemo(() => {
     const query = searchTerm.toLowerCase();
-    return item.name.toLowerCase().includes(query) || item.reference.toLowerCase().includes(query);
-  });
+    const fromDate = dateFrom ? new Date(dateFrom) : null;
+    const toDate = dateTo ? new Date(dateTo) : null;
+
+    return parts.filter((item) => {
+      const matchesSearch =
+        item.name.toLowerCase().includes(query) ||
+        item.reference.toLowerCase().includes(query) ||
+        item.compatible_cars.toLowerCase().includes(query);
+
+      const matchesDate = (() => {
+        if (!item.last_restock_date) {
+          return true;
+        }
+
+        const itemDate = new Date(item.last_restock_date);
+        if (Number.isNaN(itemDate.getTime())) {
+          return true;
+        }
+
+        if (fromDate && itemDate < fromDate) {
+          return false;
+        }
+
+        if (toDate) {
+          const inclusiveEndDate = new Date(toDate);
+          inclusiveEndDate.setHours(23, 59, 59, 999);
+          if (itemDate > inclusiveEndDate) {
+            return false;
+          }
+        }
+
+        return true;
+      })();
+
+      if (!matchesSearch || !matchesDate) {
+        return false;
+      }
+
+      const threshold = item.low_stock_threshold ?? 3;
+      const status = item.quantity === 0 ? 'out-of-stock' : item.quantity <= threshold ? 'low-stock' : 'in-stock';
+      const shouldShow =
+        activeTab === 'all' ||
+        (activeTab === 'in-stock' && status === 'in-stock') ||
+        (activeTab === 'low-stock' && status === 'low-stock') ||
+        (activeTab === 'out-of-stock' && status === 'out-of-stock');
+
+      return shouldShow && !item.archived;
+    });
+  }, [activeTab, dateFrom, dateTo, parts, searchTerm]);
+
+  const outOfStockParts = useMemo(() => visibleParts.filter((item) => item.quantity === 0), [visibleParts]);
+  const lowStockParts = useMemo(() => visibleParts.filter((item) => item.quantity > 0 && item.quantity <= (item.low_stock_threshold ?? 3)), [visibleParts]);
+  const inStockParts = useMemo(() => visibleParts.filter((item) => item.quantity > (item.low_stock_threshold ?? 3)), [visibleParts]);
+
+  const counts = useMemo(
+    () => ({
+      all: visibleParts.length,
+      inStock: inStockParts.length,
+      lowStock: lowStockParts.length,
+      outOfStock: outOfStockParts.length
+    }),
+    [inStockParts.length, lowStockParts.length, outOfStockParts.length, visibleParts.length]
+  );
+
+  const totalRestockValue = useMemo(() => outOfStockParts.reduce((sum, item) => sum + item.purchaseprice * 1, 0), [outOfStockParts]);
+
+  const toggleSelected = (itemId: number | string) => {
+    setSelectedIds((current) => (current.includes(itemId) ? current.filter((id) => id !== itemId) : [...current, itemId]));
+  };
+
+  const selectAllVisible = () => {
+    setSelectedIds(visibleParts.map((item) => item.id));
+  };
+
+  const clearSelection = () => {
+    setSelectedIds([]);
+  };
+
+  const handleArchivePart = async (itemId: number | string) => {
+    const { error } = await supabase.from('inventory').update({ archived: true }).eq('id', itemId);
+    if (error) {
+      console.error('Unable to archive item:', error.message);
+      return;
+    }
+
+    setParts((previousParts) => previousParts.map((part) => (part.id.toString() === itemId.toString() ? { ...part, archived: true } : part)));
+    setToastMessage('Pièce archivée.');
+  };
+
+  const openHistory = async (item: InventoryItem) => {
+    setHistoryTarget(item);
+    const { data, error } = await supabase.from('restock_orders').select('*').eq('part_id', item.id).order('created_at', { ascending: false });
+    if (!error) {
+      setHistoryEntries((data ?? []) as Array<{ id: string; quantity_ordered: number; status: string; created_at?: string | null; supplier?: string | null; note?: string | null }>);
+    }
+  };
+
+  const handleBulkRestock = async () => {
+    if (selectedIds.length === 0) {
+      return;
+    }
+
+    const selectedItems = parts.filter((part) => selectedIds.includes(part.id));
+    const itemNames = selectedItems.map((item) => item.name).join(', ');
+    setToastMessage(`Commande préparée pour: ${itemNames}`);
+    clearSelection();
+  };
 
   const startInlineEdit = (item: InventoryItem, field: EditableField) => {
     setEditingCell({ id: item.id, field });
@@ -634,7 +808,10 @@ export default function Inventory() {
       purchaseprice: Number(formState.purchaseprice) || 0,
       sellingprice: Number(formState.sellingprice) || 0,
       quantity: Math.max(0, Math.floor(Number(formState.quantity) || 0)),
-      image_url: imageUrl
+      image_url: imageUrl,
+      archived: false,
+      total_sold: 0,
+      low_stock_threshold: 3
     };
 
     const { data, error } = await supabase.from('inventory').insert([newItem]).select().single();
@@ -691,6 +868,79 @@ export default function Inventory() {
               placeholder={labels.searchPlaceholder}
             />
           </label>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-high px-3 py-2 text-sm text-on-surface-variant">
+              <span>Du</span>
+              <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} className="bg-transparent outline-none" />
+            </label>
+            <label className="flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-high px-3 py-2 text-sm text-on-surface-variant">
+              <span>Au</span>
+              <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} className="bg-transparent outline-none" />
+            </label>
+          </div>
+        </div>
+
+        <div className="mb-6 flex flex-wrap gap-2">
+          {[
+            { key: 'all', label: labels.tabs.all, count: counts.all },
+            { key: 'in-stock', label: labels.tabs.inStock, count: counts.inStock },
+            { key: 'low-stock', label: labels.tabs.lowStock, count: counts.lowStock },
+            { key: 'out-of-stock', label: labels.tabs.outOfStock, count: counts.outOfStock }
+          ].map((tab) => {
+            const active = activeTab === tab.key;
+            const isOutOfStock = tab.key === 'out-of-stock';
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key as 'all' | 'in-stock' | 'low-stock' | 'out-of-stock')}
+                className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                  active
+                    ? isOutOfStock
+                      ? 'border-red-500 bg-red-600 text-white'
+                      : 'border-primary bg-primary text-on-primary'
+                    : 'border-outline-variant bg-surface-container-high text-on-surface-variant'
+                }`}
+              >
+                {tab.label} {active ? `(${tab.count})` : `(${tab.count})`}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mb-6 rounded-3xl border border-red-500/30 bg-red-500/10 p-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.3em] text-red-400">{labels.restock.summaryTitle}</p>
+              <h2 className="mt-2 text-xl font-semibold text-white">{outOfStockParts.length} {labels.restock.count}</h2>
+              <p className="mt-1 text-sm text-zinc-400">{labels.restock.totalValue}: {totalRestockValue.toFixed(2)} MAD</p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <button type="button" className="rounded-full border border-red-500/30 bg-zinc-900/80 px-4 py-2 text-sm font-semibold text-red-300">
+                {labels.restock.export}
+              </button>
+              <button type="button" onClick={handleBulkRestock} className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white">
+                {labels.restock.orderAll}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={selectAllVisible} className="rounded-full border border-outline-variant bg-surface-container-high px-3 py-2 text-sm font-semibold text-on-surface">
+              {labels.restock.selectAll}
+            </button>
+            <button type="button" onClick={clearSelection} className="rounded-full border border-outline-variant bg-surface-container-high px-3 py-2 text-sm font-semibold text-on-surface">
+              {labels.restock.clearSelection}
+            </button>
+            {selectedIds.length > 0 ? (
+              <span className="rounded-full bg-red-500/15 px-3 py-2 text-sm font-semibold text-red-400">{selectedIds.length} sélectionnée(s)</span>
+            ) : null}
+          </div>
+          <button type="button" onClick={handleBulkRestock} className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white">
+            {labels.table.bulk}
+          </button>
         </div>
 
         {imageEditSuccess ? (
@@ -709,8 +959,16 @@ export default function Inventory() {
 
         <div className="overflow-hidden rounded-2xl border border-outline-variant">
           <table className="min-w-full divide-y divide-outline-variant">
-            <thead className="bg-surface-container-high">
+            <thead className="sticky top-0 z-10 bg-surface-container-high">
               <tr>
+                <th className="px-3 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.length > 0 && selectedIds.length === visibleParts.length}
+                    onChange={() => (selectedIds.length === visibleParts.length ? clearSelection() : selectAllVisible())}
+                    className="rounded border-outline-variant"
+                  />
+                </th>
                 <th className="px-3 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] text-on-surface-variant">{labels.table.number}</th>
                 <th className="px-3 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] text-on-surface-variant">{labels.table.image}</th>
                 <th className="px-3 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] text-on-surface-variant">{labels.table.name}</th>
@@ -723,12 +981,23 @@ export default function Inventory() {
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant bg-surface-container">
-              {filteredParts.map((item, index) => {
-                const isLowStock = item.quantity < 3;
+              {visibleParts.map((item, index) => {
+                const threshold = item.low_stock_threshold ?? 3;
+                const isOutOfStock = item.quantity === 0;
+                const isLowStock = item.quantity > 0 && item.quantity <= threshold;
                 const isEditing = editingCell?.id === item.id;
+                const rowStateClass = isOutOfStock ? 'bg-red-500/10 text-zinc-300' : isLowStock ? 'bg-amber-500/10 text-zinc-300' : 'bg-surface-container';
 
                 return (
-                  <tr key={item.id} className={isLowStock ? 'bg-error-container' : 'bg-surface-container'}>
+                  <tr key={item.id} className={rowStateClass}>
+                    <td className="px-3 py-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(item.id)}
+                        onChange={() => toggleSelected(item.id)}
+                        className="rounded border-outline-variant"
+                      />
+                    </td>
                     <td className="px-3 py-4 text-sm text-on-surface">{index + 1}</td>
                     <td className="px-3 py-4">
                       <div className="group relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-gray-200">
@@ -759,7 +1028,13 @@ export default function Inventory() {
                         </button>
                       </div>
                     </td>
-                    <td className="px-3 py-4 text-sm font-semibold text-on-surface">{item.name}</td>
+                    <td className="px-3 py-4 text-sm font-semibold text-on-surface">
+                      <div className="flex flex-col gap-1">
+                        <span>{item.name}</span>
+                        {isOutOfStock ? <span className="w-fit rounded-full bg-red-500/20 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-red-300">{labels.table.outOfStock}</span> : null}
+                        {isLowStock ? <span className="w-fit rounded-full bg-amber-500/20 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-300">{labels.table.lowStock}</span> : null}
+                      </div>
+                    </td>
                     <td className="px-3 py-4 text-sm text-on-surface-variant">{item.reference}</td>
                     <td className="px-3 py-4 text-sm text-on-surface-variant">{item.compatible_cars}</td>
                     <td className="px-3 py-4 text-sm font-data-tabular text-on-surface">
@@ -840,11 +1115,20 @@ export default function Inventory() {
                       )}
                     </td>
                     <td className="px-3 py-4">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button type="button" onClick={() => setRestockTarget(item)} className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-300">
+                          {labels.restock.restock}
+                        </button>
+                        <button type="button" onClick={() => void openHistory(item)} className="rounded-full border border-outline-variant bg-surface-container-high px-3 py-2 text-sm font-semibold text-on-surface">
+                          {labels.restock.viewHistory}
+                        </button>
+                        <button type="button" onClick={() => void handleArchivePart(item.id)} className="rounded-full border border-outline-variant bg-surface-container-high px-3 py-2 text-sm font-semibold text-on-surface">
+                          {labels.restock.archive}
+                        </button>
                         <button type="button" onClick={() => startInlineEdit(item, 'purchaseprice')} className="rounded-full border border-outline-variant bg-surface-container-high px-3 py-2 text-sm font-semibold text-on-surface">
                           <span className="material-symbols-outlined text-base">edit</span>
                         </button>
-                        <button type="button" onClick={() => handleDeletePart(item.id)} className="rounded-full border border-outline-variant bg-surface-container-high px-3 py-2 text-sm font-semibold text-on-surface">
+                        <button type="button" onClick={() => void handleDeletePart(item.id)} className="rounded-full border border-outline-variant bg-surface-container-high px-3 py-2 text-sm font-semibold text-on-surface">
                           <span className="material-symbols-outlined text-base">delete</span>
                         </button>
                       </div>
@@ -909,6 +1193,55 @@ export default function Inventory() {
                 {isUpdatingImage ? 'Updating...' : 'Save'}
               </button>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {toastMessage ? (
+        <div className="fixed bottom-4 right-4 z-[80] rounded-2xl border border-red-500/30 bg-zinc-900/95 px-4 py-3 text-sm font-semibold text-white shadow-2xl shadow-black/40 backdrop-blur">
+          {toastMessage}
+        </div>
+      ) : null}
+
+      <RestockModal
+        item={restockTarget}
+        isOpen={Boolean(restockTarget)}
+        onClose={() => setRestockTarget(null)}
+        onSuccess={() => {
+          void fetchInventory();
+          setToastMessage('Réapprovisionnement enregistré.');
+        }}
+      />
+
+      {historyTarget ? (
+        <div className="fixed inset-y-0 right-0 z-[75] flex w-full max-w-md flex-col border-l border-zinc-800 bg-zinc-950/95 p-6 shadow-2xl shadow-black/50 backdrop-blur-xl">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.35em] text-red-400">{labels.restock.history}</p>
+              <h3 className="mt-2 text-xl font-semibold text-white">{historyTarget.name}</h3>
+              <p className="mt-1 text-sm text-zinc-400">{historyTarget.reference}</p>
+            </div>
+            <button type="button" onClick={() => setHistoryTarget(null)} className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-300">
+              Fermer
+            </button>
+          </div>
+
+          <div className="mt-6 space-y-3 overflow-y-auto">
+            {historyEntries.length === 0 ? (
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 text-sm text-zinc-400">Aucun historique disponible.</div>
+            ) : (
+              historyEntries.map((entry) => (
+                <div key={entry.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-white">{entry.quantity_ordered} pièces</p>
+                    <span className="rounded-full bg-red-500/15 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-red-300">{entry.status}</span>
+                  </div>
+                  {entry.supplier ? <p className="mt-2 text-sm text-zinc-400">Fournisseur: {entry.supplier}</p> : null}
+                  {entry.note ? <p className="mt-2 text-sm text-zinc-400">Note: {entry.note}</p> : null}
+                  {entry.created_at ? <p className="mt-2 text-xs text-zinc-500">{new Date(entry.created_at).toLocaleDateString('fr-FR')}</p> : null}
+                </div>
+              ))
+            )}
           </div>
         </div>
       ) : null}

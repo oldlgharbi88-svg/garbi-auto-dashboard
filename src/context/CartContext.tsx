@@ -93,7 +93,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const quantityToAdd = item.quantity ?? 1;
 
     if (item.stock <= 0) {
-      showToast('Rupture de stock');
+      showToast('Rupture de stock — pièce indisponible');
       return;
     }
 

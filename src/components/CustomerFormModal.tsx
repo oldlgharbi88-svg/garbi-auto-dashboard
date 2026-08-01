@@ -9,21 +9,9 @@ interface CustomerFormModalProps {
   language: 'ar' | 'fr';
 }
 
-interface FormErrors {
-  name?: string;
-  phone?: string;
-  email?: string;
-  address?: string;
-  note?: string;
-  amount?: string;
-  debtDescription?: string;
-  date?: string;
-}
-
 interface RegularCustomerFormData {
   name: string;
   phone: string;
-  email: string;
   address: string;
   note: string;
 }
@@ -39,7 +27,6 @@ interface CreditCustomerFormData {
 const initialRegularForm: RegularCustomerFormData = {
   name: '',
   phone: '',
-  email: '',
   address: '',
   note: ''
 };
@@ -71,23 +58,13 @@ const validatePhone = (value: string) => {
   }
 
   const normalized = value.trim();
-  const phoneRegex = /^(\+212|212|0)([5-7]\d{8})$/;
-  const internationalRegex = /^\+?[1-9]\d{1,14}$/;
+  const phoneRegex = /^(0[67]\d{8}|\+212[67]\d{8})$/;
 
-  if (!phoneRegex.test(normalized) && !internationalRegex.test(normalized)) {
+  if (!phoneRegex.test(normalized)) {
     return 'Invalid phone format.';
   }
 
   return '';
-};
-
-const validateEmail = (value: string) => {
-  if (!value.trim()) {
-    return '';
-  }
-
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(value.trim()) ? '' : 'Invalid email format.';
 };
 
 const validateAmount = (value: string) => {
@@ -101,12 +78,45 @@ const validateAmount = (value: string) => {
   return '';
 };
 
+const validate = (data: RegularCustomerFormData | CreditCustomerFormData, mode: 'regular' | 'credit') => {
+  const errors: Record<string, string> = {};
+  const nameError = validateName(data.name);
+  const phoneError = validatePhone(data.phone);
+
+  if (nameError) {
+    errors.name = nameError;
+  }
+  if (phoneError) {
+    errors.phone = phoneError;
+  }
+
+  if (mode === 'regular') {
+    const regularData = data as RegularCustomerFormData;
+    if (regularData.address.trim().length > 200) {
+      errors.address = 'Address must be at most 200 characters.';
+    }
+    if (regularData.note.trim().length > 500) {
+      errors.note = 'Note must be at most 500 characters.';
+    }
+  } else {
+    const creditData = data as CreditCustomerFormData;
+    const amountError = validateAmount(creditData.amount);
+    if (amountError) {
+      errors.amount = amountError;
+    }
+    if (creditData.debtDescription.trim().length > 500) {
+      errors.debtDescription = 'Debt description must be at most 500 characters.';
+    }
+  }
+
+  return errors;
+};
+
 export default function CustomerFormModal({ mode, onClose, onSuccess, language }: CustomerFormModalProps) {
   const [regularForm, setRegularForm] = useState<RegularCustomerFormData>(initialRegularForm);
   const [creditForm, setCreditForm] = useState<CreditCustomerFormData>(initialCreditForm);
-  const [errors, setErrors] = useState<FormErrors>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [submitMessage, setSubmitMessage] = useState('');
 
   const translations = useMemo(() => ({
     fr: {
@@ -114,7 +124,6 @@ export default function CustomerFormModal({ mode, onClose, onSuccess, language }
       titleCredit: 'Ajouter un client endetté',
       name: 'Nom',
       phone: 'Téléphone',
-      email: 'Email',
       address: 'Adresse',
       note: 'Note',
       amount: 'Montant dû',
@@ -123,14 +132,13 @@ export default function CustomerFormModal({ mode, onClose, onSuccess, language }
       cancel: 'Annuler',
       save: 'Ajouter',
       saveCredit: 'Ajouter',
-      successRegular: 'Client ajouté avec succès',
-      successCredit: 'Client endetté ajouté avec succès',
       errors: {
         name: 'Le nom est obligatoire (2 à 100 caractères).',
         phone: 'Le numéro de téléphone est invalide.',
-        email: 'L’email est invalide.',
         amount: 'Le montant doit être compris entre 1 et 1 000 000.',
-        date: 'La date est obligatoire.'
+        address: 'L’adresse doit faire au maximum 200 caractères.',
+        note: 'La note doit faire au maximum 500 caractères.',
+        debtDescription: 'La description de la dette doit faire au maximum 500 caractères.'
       }
     },
     ar: {
@@ -138,7 +146,6 @@ export default function CustomerFormModal({ mode, onClose, onSuccess, language }
       titleCredit: 'إضافة زبون مدين',
       name: 'الاسم',
       phone: 'الهاتف',
-      email: 'البريد الإلكتروني',
       address: 'العنوان',
       note: 'ملاحظة',
       amount: 'المبلغ المستحق',
@@ -147,14 +154,13 @@ export default function CustomerFormModal({ mode, onClose, onSuccess, language }
       cancel: 'إلغاء',
       save: 'إضافة',
       saveCredit: 'إضافة',
-      successRegular: 'تمت إضافة الزبون بنجاح',
-      successCredit: 'تمت إضافة الزبون المدين بنجاح',
       errors: {
         name: 'الاسم مطلوب (من 2 إلى 100 حرف).',
         phone: 'رقم الهاتف غير صالح.',
-        email: 'البريد الإلكتروني غير صالح.',
         amount: 'يجب أن يكون المبلغ بين 1 و1,000,000.',
-        date: 'التاريخ مطلوب.'
+        address: 'يجب أن يكون العنوان على الأكثر 200 حرف.',
+        note: 'يجب أن تكون الملاحظة على الأكثر 500 حرف.',
+        debtDescription: 'يجب أن يكون سبب الدين على الأكثر 500 حرف.'
       }
     }
   }), [language]);
@@ -174,31 +180,18 @@ export default function CustomerFormModal({ mode, onClose, onSuccess, language }
 
   const handleRegularSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const nextErrors: FormErrors = {};
-    const nameError = validateName(regularForm.name);
-    const phoneError = validatePhone(regularForm.phone);
-    const emailError = validateEmail(regularForm.email);
+    const nextErrors = validate(regularForm, 'regular');
 
-    if (nameError) {
-      nextErrors.name = labels.errors.name;
-    }
-    if (phoneError) {
-      nextErrors.phone = labels.errors.phone;
-    }
-    if (emailError) {
-      nextErrors.email = labels.errors.email;
-    }
-
-    setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
+      setErrors(Object.fromEntries(Object.entries(nextErrors).map(([key, value]) => [key, labels.errors[key as keyof typeof labels.errors] || value])));
       return;
     }
 
+    setErrors({});
     setSubmitting(true);
     const { error } = await supabase.from('customers').insert({
       name: regularForm.name.trim(),
       phone: regularForm.phone.trim() || null,
-      email: regularForm.email.trim() || null,
       address: regularForm.address.trim() || null,
       note: regularForm.note.trim() || null,
       balance: 0,
@@ -207,37 +200,23 @@ export default function CustomerFormModal({ mode, onClose, onSuccess, language }
 
     setSubmitting(false);
     if (error) {
-      setSubmitMessage(labels.errors.name);
       return;
     }
 
-    setSubmitMessage(labels.successRegular);
     onSuccess();
     onClose();
   };
 
   const handleCreditSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const nextErrors: FormErrors = {};
-    const nameError = validateName(creditForm.name);
-    const phoneError = validatePhone(creditForm.phone);
-    const amountError = validateAmount(creditForm.amount);
+    const nextErrors = validate(creditForm, 'credit');
 
-    if (nameError) {
-      nextErrors.name = labels.errors.name;
-    }
-    if (phoneError) {
-      nextErrors.phone = labels.errors.phone;
-    }
-    if (amountError) {
-      nextErrors.amount = labels.errors.amount;
-    }
-
-    setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
+      setErrors(Object.fromEntries(Object.entries(nextErrors).map(([key, value]) => [key, labels.errors[key as keyof typeof labels.errors] || value])));
       return;
     }
 
+    setErrors({});
     setSubmitting(true);
     const { data, error } = await supabase.from('customers').insert({
       name: creditForm.name.trim(),
@@ -248,7 +227,6 @@ export default function CustomerFormModal({ mode, onClose, onSuccess, language }
 
     setSubmitting(false);
     if (error || !data?.id) {
-      setSubmitMessage(labels.errors.amount);
       return;
     }
 
@@ -260,12 +238,14 @@ export default function CustomerFormModal({ mode, onClose, onSuccess, language }
       note: creditForm.debtDescription.trim() ? `Initial debt: ${creditForm.debtDescription.trim()}` : 'Initial debt'
     });
 
-    setSubmitMessage(labels.successCredit);
     onSuccess();
     onClose();
   };
 
   const isRegularMode = mode === 'regular';
+  const isSubmitDisabled = isRegularMode
+    ? submitting || !regularForm.name.trim() || regularForm.name.trim().length < 2
+    : submitting || !creditForm.name.trim() || creditForm.name.trim().length < 2 || !creditForm.amount.trim();
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 px-4 py-6" onClick={onClose}>
@@ -280,68 +260,109 @@ export default function CustomerFormModal({ mode, onClose, onSuccess, language }
           </button>
         </div>
 
-        {submitMessage ? (
-          <div className="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{submitMessage}</div>
-        ) : null}
-
         {isRegularMode ? (
-          <form onSubmit={handleRegularSubmit} className="space-y-4">
+          <form noValidate onSubmit={handleRegularSubmit} className="space-y-4">
             <div>
               <label className="mb-2 block text-sm font-semibold text-on-surface">{labels.name} *</label>
-              <input type="text" value={regularForm.name} onChange={(event) => setRegularForm((previous) => ({ ...previous, name: event.target.value }))} className={`w-full rounded-xl border px-3 py-2 text-on-surface ${errors.name ? 'border-red-500' : 'border-outline-variant bg-surface-container-high'}`} />
+              <input
+                type="text"
+                value={regularForm.name}
+                onChange={(event) => setRegularForm((previous) => ({ ...previous, name: event.target.value }))}
+                className={`w-full rounded-xl border px-3 py-2 text-on-surface ${errors.name ? 'border-red-500' : 'border-outline-variant bg-surface-container-high'}`}
+              />
               {errors.name ? <p className="mt-1 text-sm text-red-600">{errors.name}</p> : null}
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-on-surface">{labels.phone}</label>
-                <input type="tel" value={regularForm.phone} onChange={(event) => setRegularForm((previous) => ({ ...previous, phone: event.target.value }))} className={`w-full rounded-xl border px-3 py-2 text-on-surface ${errors.phone ? 'border-red-500' : 'border-outline-variant bg-surface-container-high'}`} />
+                <input
+                  type="tel"
+                  value={regularForm.phone}
+                  onChange={(event) => setRegularForm((previous) => ({ ...previous, phone: event.target.value }))}
+                  className={`w-full rounded-xl border px-3 py-2 text-on-surface ${errors.phone ? 'border-red-500' : 'border-outline-variant bg-surface-container-high'}`}
+                />
                 {errors.phone ? <p className="mt-1 text-sm text-red-600">{errors.phone}</p> : null}
-              </div>
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-on-surface">{labels.email}</label>
-                <input type="email" value={regularForm.email} onChange={(event) => setRegularForm((previous) => ({ ...previous, email: event.target.value }))} className={`w-full rounded-xl border px-3 py-2 text-on-surface ${errors.email ? 'border-red-500' : 'border-outline-variant bg-surface-container-high'}`} />
-                {errors.email ? <p className="mt-1 text-sm text-red-600">{errors.email}</p> : null}
               </div>
             </div>
             <div>
               <label className="mb-2 block text-sm font-semibold text-on-surface">{labels.address}</label>
-              <textarea value={regularForm.address} onChange={(event) => setRegularForm((previous) => ({ ...previous, address: event.target.value }))} rows={3} className="w-full rounded-xl border border-outline-variant bg-surface-container-high px-3 py-2 text-on-surface" />
+              <textarea
+                value={regularForm.address}
+                onChange={(event) => setRegularForm((previous) => ({ ...previous, address: event.target.value }))}
+                rows={3}
+                className={`w-full rounded-xl border px-3 py-2 text-on-surface ${errors.address ? 'border-red-500' : 'border-outline-variant bg-surface-container-high'}`}
+              />
+              {errors.address ? <p className="mt-1 text-sm text-red-600">{errors.address}</p> : null}
             </div>
             <div>
               <label className="mb-2 block text-sm font-semibold text-on-surface">{labels.note}</label>
-              <textarea value={regularForm.note} onChange={(event) => setRegularForm((previous) => ({ ...previous, note: event.target.value }))} rows={3} className="w-full rounded-xl border border-outline-variant bg-surface-container-high px-3 py-2 text-on-surface" />
+              <textarea
+                value={regularForm.note}
+                onChange={(event) => setRegularForm((previous) => ({ ...previous, note: event.target.value }))}
+                rows={3}
+                className={`w-full rounded-xl border px-3 py-2 text-on-surface ${errors.note ? 'border-red-500' : 'border-outline-variant bg-surface-container-high'}`}
+              />
+              {errors.note ? <p className="mt-1 text-sm text-red-600">{errors.note}</p> : null}
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={onClose} className="rounded-full border border-outline-variant bg-surface-container-high px-4 py-2 text-sm font-semibold text-on-surface">
                 {labels.cancel}
               </button>
-              <button type="submit" disabled={submitting || regularForm.name.trim().length < 2} className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70">
-                {submitting ? '…' : labels.save}
+              <button
+                type="submit"
+                disabled={isSubmitDisabled}
+                className={`rounded-full px-4 py-2 text-sm font-semibold text-white ${isSubmitDisabled ? 'cursor-not-allowed bg-gray-400' : 'bg-red-600 hover:bg-red-700'}`}
+              >
+                {submitting ? 'Enregistrement...' : labels.save}
               </button>
             </div>
           </form>
         ) : (
-          <form onSubmit={handleCreditSubmit} className="space-y-4">
+          <form noValidate onSubmit={handleCreditSubmit} className="space-y-4">
             <div>
               <label className="mb-2 block text-sm font-semibold text-on-surface">{labels.name} *</label>
-              <input type="text" value={creditForm.name} onChange={(event) => setCreditForm((previous) => ({ ...previous, name: event.target.value }))} className={`w-full rounded-xl border px-3 py-2 text-on-surface ${errors.name ? 'border-red-500' : 'border-outline-variant bg-surface-container-high'}`} />
+              <input
+                type="text"
+                value={creditForm.name}
+                onChange={(event) => setCreditForm((previous) => ({ ...previous, name: event.target.value }))}
+                className={`w-full rounded-xl border px-3 py-2 text-on-surface ${errors.name ? 'border-red-500' : 'border-outline-variant bg-surface-container-high'}`}
+              />
               {errors.name ? <p className="mt-1 text-sm text-red-600">{errors.name}</p> : null}
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-on-surface">{labels.phone}</label>
-                <input type="tel" value={creditForm.phone} onChange={(event) => setCreditForm((previous) => ({ ...previous, phone: event.target.value }))} className={`w-full rounded-xl border px-3 py-2 text-on-surface ${errors.phone ? 'border-red-500' : 'border-outline-variant bg-surface-container-high'}`} />
+                <input
+                  type="tel"
+                  value={creditForm.phone}
+                  onChange={(event) => setCreditForm((previous) => ({ ...previous, phone: event.target.value }))}
+                  className={`w-full rounded-xl border px-3 py-2 text-on-surface ${errors.phone ? 'border-red-500' : 'border-outline-variant bg-surface-container-high'}`}
+                />
                 {errors.phone ? <p className="mt-1 text-sm text-red-600">{errors.phone}</p> : null}
               </div>
               <div>
                 <label className="mb-2 block text-sm font-semibold text-on-surface">{labels.amount} *</label>
-                <input type="number" min="1" max="1000000" step="0.01" value={creditForm.amount} onChange={(event) => setCreditForm((previous) => ({ ...previous, amount: event.target.value }))} className={`w-full rounded-xl border px-3 py-2 text-on-surface ${errors.amount ? 'border-red-500' : 'border-outline-variant bg-surface-container-high'}`} />
+                <input
+                  type="number"
+                  min="1"
+                  max="1000000"
+                  step="0.01"
+                  value={creditForm.amount}
+                  onChange={(event) => setCreditForm((previous) => ({ ...previous, amount: event.target.value }))}
+                  className={`w-full rounded-xl border px-3 py-2 text-on-surface ${errors.amount ? 'border-red-500' : 'border-outline-variant bg-surface-container-high'}`}
+                />
                 {errors.amount ? <p className="mt-1 text-sm text-red-600">{errors.amount}</p> : null}
               </div>
             </div>
             <div>
               <label className="mb-2 block text-sm font-semibold text-on-surface">{labels.debtDescription}</label>
-              <textarea value={creditForm.debtDescription} onChange={(event) => setCreditForm((previous) => ({ ...previous, debtDescription: event.target.value }))} rows={3} className="w-full rounded-xl border border-outline-variant bg-surface-container-high px-3 py-2 text-on-surface" />
+              <textarea
+                value={creditForm.debtDescription}
+                onChange={(event) => setCreditForm((previous) => ({ ...previous, debtDescription: event.target.value }))}
+                rows={3}
+                className={`w-full rounded-xl border px-3 py-2 text-on-surface ${errors.debtDescription ? 'border-red-500' : 'border-outline-variant bg-surface-container-high'}`}
+              />
+              {errors.debtDescription ? <p className="mt-1 text-sm text-red-600">{errors.debtDescription}</p> : null}
             </div>
             <div>
               <label className="mb-2 block text-sm font-semibold text-on-surface">{labels.date}</label>
@@ -351,8 +372,12 @@ export default function CustomerFormModal({ mode, onClose, onSuccess, language }
               <button type="button" onClick={onClose} className="rounded-full border border-outline-variant bg-surface-container-high px-4 py-2 text-sm font-semibold text-on-surface">
                 {labels.cancel}
               </button>
-              <button type="submit" disabled={submitting || !creditForm.name.trim() || !creditForm.amount.trim()} className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70">
-                {submitting ? '…' : labels.saveCredit}
+              <button
+                type="submit"
+                disabled={isSubmitDisabled}
+                className={`rounded-full px-4 py-2 text-sm font-semibold text-white ${isSubmitDisabled ? 'cursor-not-allowed bg-gray-400' : 'bg-red-600 hover:bg-red-700'}`}
+              >
+                {submitting ? 'Enregistrement...' : labels.saveCredit}
               </button>
             </div>
           </form>

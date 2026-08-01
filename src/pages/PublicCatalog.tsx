@@ -25,6 +25,7 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedItem, setSelectedItem] = useState<CatalogItem | null>(null);
   const [priceEditTarget, setPriceEditTarget] = useState<CatalogItem | null>(null);
+  const [showOutOfStock, setShowOutOfStock] = useState(true);
   const [newPriceInput, setNewPriceInput] = useState('');
   const [priceError, setPriceError] = useState('');
   const [isSavingPrice, setIsSavingPrice] = useState(false);
@@ -47,6 +48,9 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
     const normalizedSearch = search.trim().toLowerCase();
 
     return items.filter((item) => {
+      if (!showOutOfStock && item.quantity <= 0) {
+        return false;
+      }
       const matchesSearch =
         normalizedSearch.length === 0 ||
         item.name.toLowerCase().includes(normalizedSearch) ||
@@ -59,7 +63,7 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
 
       return matchesSearch && matchesCategory;
     });
-  }, [items, search, selectedCategories]);
+  }, [items, search, selectedCategories, showOutOfStock]);
 
   useEffect(() => {
     if (!toastMessage) {
@@ -175,11 +179,15 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
       </section>
 
       <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-2xl font-semibold text-white">Catalogue public</h2>
             <p className="text-sm text-zinc-400">{filteredItems.length} pièces affichées</p>
           </div>
+          <label className="flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/70 px-3 py-2 text-sm text-zinc-300">
+            <input type="checkbox" checked={showOutOfStock} onChange={() => setShowOutOfStock((current) => !current)} className="rounded border-zinc-700 bg-zinc-900" />
+            Afficher les pièces en rupture
+          </label>
         </div>
 
         {loading ? (
@@ -260,7 +268,12 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
                       {inStock ? (
                         <p className="font-medium text-emerald-400">✓ En stock • {item.quantity} disponibles</p>
                       ) : (
-                        <p className="font-medium text-rose-400">✗ Rupture</p>
+                        <div className="space-y-2">
+                          <p className="font-medium text-rose-400">✗ Rupture</p>
+                          <button type="button" className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-red-300">
+                            M’avertir / نبّهني
+                          </button>
+                        </div>
                       )}
                     </div>
 

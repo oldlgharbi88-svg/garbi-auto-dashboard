@@ -99,6 +99,9 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
                     ) : null}
                   </div>
                   <p className="mt-1 text-xs text-zinc-400">Total: {(item.price * item.quantity).toLocaleString('fr-FR')} MAD</p>
+                  {item.stock <= 0 ? (
+                    <p className="mt-1 text-xs font-semibold text-rose-400">⚠️ Cette pièce est maintenant en rupture</p>
+                  ) : null}
                   {item.price_modified ? (
                     <div className="mt-1 flex flex-wrap items-center justify-end gap-2 text-[11px] text-zinc-400">
                       <span className="rounded-full bg-amber-500/20 px-2 py-0.5 font-medium text-amber-300">✏️</span>
