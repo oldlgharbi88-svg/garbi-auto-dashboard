@@ -697,12 +697,18 @@ export default function Inventory() {
   };
 
   const handleQuantityChange = async (itemId: number | string, delta: number) => {
-    const part = parts.find((item) => item.id.toString() === itemId.toString());
+    const itemKey = itemId.toString();
+    const part = parts.find((item) => item.id.toString() === itemKey);
     if (!part) {
       return;
     }
 
     const nextQuantity = Math.max(0, part.quantity + delta);
+
+    setParts((previousParts) =>
+      previousParts.map((item) => (item.id.toString() === itemKey ? { ...item, quantity: nextQuantity } : item))
+    );
+
     const { data, error } = await supabase
       .from('inventory')
       .update({ quantity: nextQuantity })
@@ -711,12 +717,15 @@ export default function Inventory() {
       .maybeSingle();
 
     if (error) {
+      setParts((previousParts) =>
+        previousParts.map((item) => (item.id.toString() === itemKey ? { ...item, quantity: part.quantity } : item))
+      );
       console.error('Unable to update quantity:', error.message);
       return;
     }
 
     if (data) {
-      setParts((previousParts) => [data, ...previousParts.filter((item) => item.id.toString() !== data.id.toString())]);
+      setParts((previousParts) => previousParts.map((item) => (item.id.toString() === itemKey ? { ...item, ...data } : item)));
     }
   };
 

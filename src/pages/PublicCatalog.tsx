@@ -145,6 +145,19 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
             </p>
           </div>
 
+          <div className="rounded-3xl border border-red-500/20 bg-zinc-900/70 p-4 shadow-xl shadow-black/20 backdrop-blur-xl">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.35em] text-red-400">Contact & emplacement</p>
+                <div className="mt-2 space-y-1 text-sm text-zinc-300">
+                  <p>📞 0678186802</p>
+                  <p>📞 0667440034</p>
+                  <p>📍 Khmis Zemamra, Zone Industrielle, en face de l'Auto et Ould Lbiad</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="rounded-3xl border border-white/10 bg-white/10 p-4 shadow-2xl shadow-black/30 backdrop-blur-xl">
             <div className="flex flex-col gap-4 lg:flex-row">
               <label className="flex flex-1 items-center gap-3 rounded-2xl border border-zinc-700 bg-zinc-900/80 px-4 py-3">
