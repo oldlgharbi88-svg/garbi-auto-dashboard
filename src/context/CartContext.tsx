@@ -2,6 +2,10 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import { fetchCartCustomPricesFromSupabase, syncCartCustomPriceToSupabase } from '../lib/supabase';
 
 const CART_STORAGE_KEY = 'garbi_cart_items';
+const DISCOUNT_STORAGE_KEY = 'garbi_cart_discount';
+const TAX_RATE = 0.2;
+
+type DiscountType = 'none' | 'percentage' | 'fixed';
 
 export interface CartItem {
   id: string;
@@ -30,11 +34,20 @@ interface CartContextValue {
   cartItems: CartItem[];
   cartCount: number;
   total: number;
+  subtotal: number;
+  discountType: DiscountType;
+  discountValue: number;
+  discountAmount: number;
+  taxRate: number;
+  taxAmount: number;
+  totalTTC: number;
   toast: string | null;
   addToCart: (item: CartItemInput) => void;
   removeFromCart: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   updateCartItemPrice: (id: string, newPrice: number, options?: { reason?: string; priceModified?: boolean; originalPrice?: number }) => void;
+  setDiscount: (type: DiscountType, value: number) => void;
+  clearDiscount: () => void;
   clearCart: () => void;
   clearToast: () => void;
   showToast: (message: string) => void;
@@ -45,6 +58,8 @@ const CartContext = createContext<CartContextValue | undefined>(undefined);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [toast, setToast] = useState<string | null>(null);
+  const [discountType, setDiscountType] = useState<DiscountType>('none');
+  const [discountValue, setDiscountValue] = useState(0);
   const timeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -63,6 +78,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
       } catch {
         window.localStorage.removeItem(CART_STORAGE_KEY);
+      }
+
+      try {
+        const savedDiscount = window.localStorage.getItem(DISCOUNT_STORAGE_KEY);
+        if (savedDiscount) {
+          const parsed = JSON.parse(savedDiscount) as { type?: DiscountType; value?: number };
+          if (parsed?.type) {
+            setDiscountType(parsed.type);
+            setDiscountValue(Number(parsed.value) || 0);
+          }
+        }
+      } catch {
+        window.localStorage.removeItem(DISCOUNT_STORAGE_KEY);
       }
 
       try {
@@ -124,6 +152,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
   }, [cartItems]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.localStorage.setItem(DISCOUNT_STORAGE_KEY, JSON.stringify({ type: discountType, value: discountValue }));
+  }, [discountType, discountValue]);
 
   const showToast = (message: string) => {
     if (timeoutRef.current !== null) {
@@ -209,8 +245,33 @@ export function CartProvider({ children }: { children: ReactNode }) {
     void syncCartCustomPriceToSupabase(id, normalizedPrice);
   };
 
+  const setDiscount = (type: DiscountType, value: number) => {
+    if (type === 'percentage') {
+      const normalizedValue = Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
+      setDiscountType('percentage');
+      setDiscountValue(normalizedValue);
+      return;
+    }
+
+    if (type === 'fixed') {
+      const normalizedValue = Math.max(0, Number.isFinite(value) ? value : 0);
+      setDiscountType('fixed');
+      setDiscountValue(normalizedValue);
+      return;
+    }
+
+    setDiscountType('none');
+    setDiscountValue(0);
+  };
+
+  const clearDiscount = () => {
+    setDiscountType('none');
+    setDiscountValue(0);
+  };
+
   const clearCart = () => {
     setCartItems([]);
+    clearDiscount();
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem(CART_STORAGE_KEY);
     }
@@ -221,7 +282,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const cartCount = useMemo(() => cartItems.reduce((total, item) => total + item.quantity, 0), [cartItems]);
-  const total = useMemo(() => cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0), [cartItems]);
+  const subtotal = useMemo(() => cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0), [cartItems]);
+  const discountAmount = useMemo(() => {
+    if (discountType === 'percentage') {
+      const percentage = Math.max(0, Math.min(100, discountValue));
+      return subtotal * (percentage / 100);
+    }
+
+    if (discountType === 'fixed') {
+      return Math.min(Math.max(discountValue, 0), subtotal);
+    }
+
+    return 0;
+  }, [discountType, discountValue, subtotal]);
+  const taxAmount = useMemo(() => Math.max(subtotal - discountAmount, 0) * TAX_RATE, [discountAmount, subtotal]);
+  const totalTTC = useMemo(() => Math.max(subtotal - discountAmount, 0) + taxAmount, [discountAmount, subtotal, taxAmount]);
+  const total = subtotal;
 
   return (
     <CartContext.Provider
@@ -229,11 +305,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
         cartItems,
         cartCount,
         total,
+        subtotal,
+        discountType,
+        discountValue,
+        discountAmount,
+        taxRate: TAX_RATE,
+        taxAmount,
+        totalTTC,
         toast,
         addToCart,
         removeFromCart,
         updateQuantity,
         updateCartItemPrice,
+        setDiscount,
+        clearDiscount,
         clearCart,
         clearToast,
         showToast

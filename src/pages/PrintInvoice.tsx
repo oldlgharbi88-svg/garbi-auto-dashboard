@@ -49,7 +49,7 @@ function getInvoiceNumber() {
 }
 
 export default function PrintInvoice() {
-  const { cartItems, showToast } = useCart();
+  const { cartItems, showToast, subtotal: cartSubtotal, discountType, discountValue, discountAmount, taxAmount, totalTTC } = useCart();
   const [customerData, setCustomerData] = useState<CustomerInvoiceData>({
     name: '',
     clientNumber: '',
@@ -110,9 +110,9 @@ export default function PrintInvoice() {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(customerData));
   }, [customerData]);
 
-  const subtotal = useMemo(() => cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0), [cartItems]);
-  const vat = 0;
-  const grandTotal = subtotal + vat;
+  const subtotal = cartSubtotal;
+  const vat = taxAmount;
+  const grandTotal = totalTTC;
 
   const invoiceTime = `${invoiceDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
   const invoiceDateLabel = `${invoiceDate.toLocaleDateString('fr-FR')}`;
@@ -222,7 +222,7 @@ export default function PrintInvoice() {
           quantity: item.quantity,
           price: item.price
         })),
-        total_amount: cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
+        total_amount: totalTTC,
         status: 'pending'
       });
 
@@ -463,14 +463,18 @@ export default function PrintInvoice() {
                 <span>{subtotal.toLocaleString('fr-FR')} MAD</span>
               </div>
               <div className="mt-2 flex items-center justify-between text-sm text-zinc-600">
-                <span>TVA</span>
-                <span>0.00 MAD</span>
+                <span>Remise</span>
+                <span>{discountAmount > 0 ? `-${discountAmount.toLocaleString('fr-FR')} MAD` : '0.00 MAD'}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-sm text-zinc-600">
+                <span>TVA (20%)</span>
+                <span>{vat.toLocaleString('fr-FR')} MAD</span>
               </div>
               <div className="mt-3 flex items-center justify-between border-t border-zinc-200 pt-3 text-lg font-semibold text-zinc-900">
-                <span>Total</span>
+                <span>Total TTC</span>
                 <span>{grandTotal.toLocaleString('fr-FR')} MAD</span>
               </div>
-              <p className="mt-3 text-xs text-zinc-500">TVA non applicable, art. 89</p>
+              <p className="mt-3 text-xs text-zinc-500">{discountType === 'none' ? 'TVA applicable au taux de 20%.' : `Remise ${discountType === 'percentage' ? `${discountValue}%` : `${discountValue.toLocaleString('fr-FR')} MAD`}`}</p>
             </div>
           </section>
 

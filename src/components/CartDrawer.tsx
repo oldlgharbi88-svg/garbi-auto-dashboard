@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import EditCartItemPriceModal from './EditCartItemPriceModal';
 import { useCart, type CartItem } from '../context/CartContext';
 
+const presetDiscounts = [5, 10, 15, 20];
+
 interface CartDrawerProps {
   open: boolean;
   onClose: () => void;
@@ -10,10 +12,10 @@ interface CartDrawerProps {
 }
 
 export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices = false }: CartDrawerProps) {
-  const { cartItems, cartCount, total, removeFromCart, updateQuantity } = useCart();
+  const { cartItems, cartCount, subtotal, discountType, discountValue, discountAmount, taxAmount, totalTTC, removeFromCart, updateQuantity, setDiscount, clearDiscount } = useCart();
   const [editingItem, setEditingItem] = useState<CartItem | null>(null);
+  const [customDiscountInput, setCustomDiscountInput] = useState('');
 
-  const subtotal = useMemo(() => cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0), [cartItems]);
   const manualDiscountTotal = useMemo(
     () =>
       cartItems.reduce((sum, item) => {
@@ -25,7 +27,35 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
       }, 0),
     [cartItems]
   );
-  const grandTotal = subtotal - manualDiscountTotal;
+
+  const handlePresetDiscount = (value: number) => {
+    setDiscount('percentage', value);
+    setCustomDiscountInput('');
+  };
+
+  const handleApplyCustomDiscount = () => {
+    const parsed = Number(customDiscountInput.replace(/,/g, '.'));
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return;
+    }
+
+    const isPercentage = customDiscountInput.includes('%');
+    const normalizedValue = Number(customDiscountInput.replace('%', '').replace(/,/g, '.'));
+
+    if (isPercentage) {
+      setDiscount('percentage', normalizedValue);
+    } else {
+      setDiscount('fixed', normalizedValue);
+    }
+  };
+
+  const handleClearDiscount = () => {
+    clearDiscount();
+    setCustomDiscountInput('');
+  };
+
+  const formattedDiscountLabel = discountType === 'percentage' ? `${discountValue}%` : discountType === 'fixed' ? `${discountValue.toFixed(0)} MAD` : 'Aucune';
+  const grandTotal = subtotal - discountAmount;
 
   if (!open) {
     return null;
@@ -129,24 +159,66 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
           <span>Sous-total</span>
           <span>{subtotal.toLocaleString('fr-FR')} MAD</span>
         </div>
-        {manualDiscountTotal > 0 ? (
+        {discountAmount > 0 ? (
           <div className="mt-2 flex items-center justify-between text-xs text-emerald-400">
-            <span>Remises</span>
+            <span>Remise ({formattedDiscountLabel})</span>
+            <span>-{discountAmount.toLocaleString('fr-FR')} MAD</span>
+          </div>
+        ) : null}
+        {manualDiscountTotal > 0 ? (
+          <div className="mt-2 flex items-center justify-between text-xs text-amber-400">
+            <span>Réduction produit</span>
             <span>-{manualDiscountTotal.toLocaleString('fr-FR')} MAD</span>
           </div>
         ) : null}
         <div className="mt-2 flex items-center justify-between text-xs">
-          <span>Livraison</span>
-          <span>À calculer</span>
+          <span>TVA (20%)</span>
+          <span>{taxAmount.toLocaleString('fr-FR')} MAD</span>
         </div>
         <div className="mt-3 border-t border-zinc-800 pt-3" />
         <div className="flex items-center justify-between text-sm font-semibold text-white">
-          <span>Total</span>
-          <span>{grandTotal.toLocaleString('fr-FR')} MAD</span>
+          <span>Total TTC</span>
+          <span>{totalTTC.toLocaleString('fr-FR')} MAD</span>
         </div>
-        {manualDiscountTotal > 0 ? (
-          <div className="mt-2 text-[11px] text-emerald-400">Économie: {manualDiscountTotal.toLocaleString('fr-FR')} MAD</div>
-        ) : null}
+        <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950/70 p-2">
+          <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">Remise</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {presetDiscounts.map((value) => (
+              <button key={value} type="button" onClick={() => handlePresetDiscount(value)} className={`rounded-full px-2.5 py-1 text-xs font-medium ${discountType === 'percentage' && discountValue === value ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-300'}`}>
+                {value}%
+              </button>
+            ))}
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <input
+              value={customDiscountInput}
+              onChange={(event) => setCustomDiscountInput(event.target.value)}
+              placeholder="5% ou 50"
+              className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-sm text-white outline-none"
+            />
+            <button type="button" onClick={handleApplyCustomDiscount} className="rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white">
+              Appliquer
+            </button>
+          </div>
+          <div className="mt-2 flex items-center justify-between text-[11px] text-zinc-400">
+            <span>{discountType === 'none' ? 'Aucune remise' : `Remise active: ${formattedDiscountLabel}`}</span>
+            {discountType === 'none' ? null : (
+              <button type="button" onClick={handleClearDiscount} className="text-red-400">
+                Effacer
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950/70 p-2">
+          <div className="flex items-center justify-between text-xs text-zinc-400">
+            <span>Montant net</span>
+            <span>{grandTotal.toLocaleString('fr-FR')} MAD</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between text-lg font-semibold text-white">
+            <span>Total</span>
+            <span>{(subtotal - discountAmount).toLocaleString('fr-FR')} MAD</span>
+          </div>
+        </div>
       </div>
 
       <div className="mt-3 flex flex-col gap-2">

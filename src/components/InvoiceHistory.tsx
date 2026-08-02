@@ -22,6 +22,8 @@ export default function InvoiceHistory() {
   const [customerFilter, setCustomerFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -50,18 +52,24 @@ export default function InvoiceHistory() {
     const customerValue = customerFilter.trim().toLowerCase();
 
     return invoices.filter((invoice) => {
+      const invoiceDate = invoice.created_at ? invoice.created_at.slice(0, 10) : '';
       const matchesSearch =
         searchValue.length === 0 ||
         invoice.invoice_number.toLowerCase().includes(searchValue) ||
         invoice.customer_name.toLowerCase().includes(searchValue);
 
       const matchesCustomer = customerValue.length === 0 || invoice.customer_name.toLowerCase().includes(customerValue);
-      const matchesDateFrom = !dateFrom || (invoice.created_at ? invoice.created_at.slice(0, 10) >= dateFrom : false);
-      const matchesDateTo = !dateTo || (invoice.created_at ? invoice.created_at.slice(0, 10) <= dateTo : false);
+      const matchesDateFrom = !dateFrom || invoiceDate >= dateFrom;
+      const matchesDateTo = !dateTo || invoiceDate <= dateTo;
+      const matchesStatus = statusFilter === 'all' || invoice.status.toLowerCase() === statusFilter.toLowerCase();
 
-      return matchesSearch && matchesCustomer && matchesDateFrom && matchesDateTo;
+      return matchesSearch && matchesCustomer && matchesDateFrom && matchesDateTo && matchesStatus;
+    }).sort((left, right) => {
+      const leftDate = left.created_at ? new Date(left.created_at).getTime() : 0;
+      const rightDate = right.created_at ? new Date(right.created_at).getTime() : 0;
+      return sortDirection === 'asc' ? leftDate - rightDate : rightDate - leftDate;
     });
-  }, [customerFilter, dateFrom, dateTo, invoices, search]);
+  }, [customerFilter, dateFrom, dateTo, invoices, search, sortDirection, statusFilter]);
 
   const handlePrintAgain = (invoice: InvoiceRecord) => {
     const payload = JSON.stringify({
@@ -112,7 +120,7 @@ export default function InvoiceHistory() {
           </div>
         </div>
 
-        <div className="mt-6 grid gap-3 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr]">
+        <div className="mt-6 grid gap-3 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr_0.8fr]">
           <label className="rounded-2xl border border-outline-variant bg-surface-container-high px-3 py-2 text-sm text-on-surface-variant">
             <span className="mb-1 block text-xs uppercase tracking-[0.24em]">Recherche</span>
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="N° facture ou client" className="w-full bg-transparent outline-none" />
@@ -129,6 +137,19 @@ export default function InvoiceHistory() {
             <span className="mb-1 block text-xs uppercase tracking-[0.24em]">Jusqu&apos;à</span>
             <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} className="w-full bg-transparent outline-none" />
           </label>
+          <label className="rounded-2xl border border-outline-variant bg-surface-container-high px-3 py-2 text-sm text-on-surface-variant">
+            <span className="mb-1 block text-xs uppercase tracking-[0.24em]">Statut</span>
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="w-full bg-transparent outline-none">
+              <option value="all">Tous</option>
+              <option value="paid">Payée</option>
+              <option value="pending">En attente</option>
+            </select>
+          </label>
+        </div>
+        <div className="mt-3 flex items-center justify-end">
+          <button type="button" onClick={() => setSortDirection((value) => (value === 'asc' ? 'desc' : 'asc'))} className="rounded-full border border-outline-variant bg-surface-container-high px-3 py-2 text-sm font-semibold text-on-surface">
+            Trier par date: {sortDirection === 'asc' ? 'Croissante' : 'Décroissante'}
+          </button>
         </div>
       </div>
 
@@ -137,37 +158,41 @@ export default function InvoiceHistory() {
       ) : filteredInvoices.length === 0 ? (
         <div className="rounded-3xl border border-outline-variant bg-surface-container p-6 text-center text-on-surface-variant">Aucune facture ne correspond à votre recherche.</div>
       ) : (
-        <div className="space-y-4">
-          {filteredInvoices.map((invoice) => (
-            <div key={invoice.id} className="rounded-3xl border border-outline-variant bg-surface-container p-5 shadow-lg shadow-black/10">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-lg font-semibold text-on-surface">{invoice.invoice_number}</p>
-                    <span className="rounded-full bg-red-500/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-red-300">{invoice.status}</span>
-                  </div>
-                  <p className="mt-2 text-sm text-on-surface-variant">Client: {invoice.customer_name}</p>
-                  <p className="text-sm text-on-surface-variant">Date: {invoice.created_at ? new Date(invoice.created_at).toLocaleString('fr-FR') : '—'}</p>
-                  <p className="text-sm text-on-surface-variant">Montant: {invoice.total_amount.toLocaleString('fr-FR')} MAD</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={() => handlePrintAgain(invoice)} className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-300">Réimprimer</button>
-                  <button type="button" onClick={() => handleDownloadPdf(invoice)} className="rounded-full border border-outline-variant bg-surface-container-high px-3 py-2 text-sm font-semibold text-on-surface">Télécharger PDF</button>
-                </div>
-              </div>
-              <div className="mt-4 rounded-2xl border border-outline-variant bg-surface-container-low p-4 text-sm text-on-surface-variant">
-                <p className="font-semibold text-on-surface">Articles</p>
-                <div className="mt-2 space-y-1">
-                  {invoice.items.map((item) => (
-                    <div key={`${invoice.id}-${item.id}`} className="flex items-center justify-between gap-3">
-                      <span>{item.name}</span>
-                      <span>{item.quantity} × {item.price.toLocaleString('fr-FR')} MAD</span>
+        <div className="overflow-hidden rounded-3xl border border-outline-variant bg-surface-container shadow-lg shadow-black/10">
+          <table className="min-w-full divide-y divide-outline-variant">
+            <thead className="bg-surface-container-high">
+              <tr>
+                <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] text-on-surface-variant">Facture</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] text-on-surface-variant">Date</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] text-on-surface-variant">Montant</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] text-on-surface-variant">Statut</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] text-on-surface-variant">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-outline-variant bg-surface-container">
+              {filteredInvoices.map((invoice) => (
+                <tr key={invoice.id} className="align-top">
+                  <td className="px-4 py-3">
+                    <p className="font-semibold text-on-surface">{invoice.invoice_number}</p>
+                    <p className="mt-1 text-sm text-on-surface-variant">{invoice.customer_name}</p>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-on-surface-variant">{invoice.created_at ? new Date(invoice.created_at).toLocaleString('fr-FR') : '—'}</td>
+                  <td className="px-4 py-3 text-sm font-data-tabular text-on-surface">{invoice.total_amount.toLocaleString('fr-FR')} MAD</td>
+                  <td className="px-4 py-3">
+                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] ${invoice.status.toLowerCase() === 'paid' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'}`}>
+                      {invoice.status === 'paid' ? 'Payée' : 'En attente'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => handlePrintAgain(invoice)} className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-300">Réimprimer</button>
+                      <button type="button" onClick={() => handleDownloadPdf(invoice)} className="rounded-full border border-outline-variant bg-surface-container-high px-3 py-2 text-sm font-semibold text-on-surface">PDF</button>
                     </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
