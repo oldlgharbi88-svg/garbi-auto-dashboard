@@ -58,8 +58,10 @@ export default function PrintInvoice() {
               <div>
                 <h1 className="text-2xl font-bold text-zinc-900">{company.name}</h1>
                 <p className="mt-1 text-sm text-zinc-600">{company.address}</p>
-                <p className="text-sm text-zinc-600">{company.phone}</p>
-                <p className="text-sm text-zinc-600">{company.email}</p>
+                <p className="text-sm text-zinc-600">{company.addressAr}</p>
+                <a href={`tel:${company.phone1}`} className="block text-sm text-zinc-600 hover:text-red-600">{company.phone1}</a>
+                <a href={`tel:${company.phone2}`} className="block text-sm text-zinc-600 hover:text-red-600">{company.phone2}</a>
+                <a href={`mailto:${company.email}`} className="block text-sm text-zinc-600 hover:text-red-600">{company.email}</a>
                 <div className="mt-2 flex flex-wrap gap-3 text-xs text-zinc-500">
                   <span>ICE: {company.ice}</span>
                   <span>RC: {company.rc}</span>

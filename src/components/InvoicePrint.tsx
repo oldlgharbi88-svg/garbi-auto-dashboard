@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { company } from '../config/company';
 
 interface InvoiceItem {
   id: number;
@@ -99,10 +100,11 @@ export default function InvoicePrint({
 }: InvoicePrintProps) {
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<number>(sampleInvoices[0].id);
 
-  const storeName = 'Garbi Auto Logistique';
-  const storeAddress = 'Khmis Zemamra, Zone Industrielle, en face de l\'Auto et Ould Lbiad';
-  const storePhone = '0678186802 / 0667440034';
-  const taxId = typeof window !== 'undefined' ? window.localStorage.getItem('taxId') ?? 'ICE 0011223344' : 'ICE 0011223344';
+  const storeName = company.name;
+  const storeAddress = `${company.address}\n${company.addressAr}`;
+  const storePhone1 = company.phone1;
+  const storePhone2 = company.phone2;
+  const storeRegistration = '';
 
   const selectedInvoice = useMemo(() => {
     const fallback = sampleInvoices.find((invoice) => invoice.id === selectedInvoiceId) ?? sampleInvoices[0];
@@ -116,10 +118,11 @@ export default function InvoicePrint({
       date: invoiceDate ?? fallback.date,
       storeName,
       storeAddress,
-      storePhone,
-      taxId
+      storePhone1,
+      storePhone2,
+      storeRegistration
     };
-  }, [customer, discount, invoiceDate, invoiceNumber, items, paymentTerms, poNumber, selectedInvoiceId, storeAddress, storeName, storePhone, taxId, totals]);
+  }, [customer, discount, invoiceDate, invoiceNumber, items, paymentTerms, poNumber, selectedInvoiceId, storeAddress, storeName, storePhone1, storePhone2, storeRegistration, totals]);
 
   const printInvoice = () => {
     window.print();
@@ -165,11 +168,14 @@ export default function InvoicePrint({
                 <div className="space-y-1">
                   <h2 className="text-2xl font-semibold text-on-surface">{selectedInvoice.storeName}</h2>
                   <div className="text-sm text-on-surface-variant">
-                    <p>📞 0678186802</p>
-                    <p>📞 0667440034</p>
-                    <p>📍 {selectedInvoice.storeAddress}</p>
+                    <a href={`tel:${selectedInvoice.storePhone1}`} className="block text-primary hover:underline">📞 {selectedInvoice.storePhone1}</a>
+                    <a href={`tel:${selectedInvoice.storePhone2}`} className="mt-1 block text-primary hover:underline">📞 {selectedInvoice.storePhone2}</a>
+                    <div className="mt-1 whitespace-pre-line">
+                      <p>📍 {selectedInvoice.storeAddress.split('\n')[0]}</p>
+                      <p>{selectedInvoice.storeAddress.split('\n')[1] ?? ''}</p>
+                    </div>
+                    {selectedInvoice.storeRegistration ? <p>{selectedInvoice.storeRegistration}</p> : null}
                   </div>
-                  <p className="text-sm text-on-surface-variant">Tax ID: {selectedInvoice.taxId}</p>
                 </div>
               </div>
 

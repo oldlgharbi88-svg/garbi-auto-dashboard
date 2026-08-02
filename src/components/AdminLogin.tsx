@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { company } from '../config/company';
 
 type ActiveView = 'pos' | 'inventory' | 'invoices' | 'clients' | 'customers' | 'settings' | 'reports';
 type Role = 'manager' | 'employee';
@@ -127,6 +128,14 @@ export default function AccessModal({ pendingView, onSuccess, onCancel, error }:
           >
             Cancel
           </button>
+        </div>
+
+        <div className="mt-4 border-t border-outline-variant pt-4 text-center text-xs text-on-surface-variant">
+          <p className="font-semibold text-on-surface">{company.name}</p>
+          <a href={`tel:${company.phone1}`} className="mt-1 block text-primary hover:underline">{company.phone1}</a>
+          <a href={`tel:${company.phone2}`} className="mt-1 block text-primary hover:underline">{company.phone2}</a>
+          <p className="mt-2">{company.address}</p>
+          <p>{company.addressAr}</p>
         </div>
       </div>
     </div>

@@ -1,3 +1,5 @@
+import { company } from '../config/company';
+
 type ActiveView = 'pos' | 'inventory' | 'invoices' | 'clients' | 'customers' | 'settings' | 'reports';
 
 interface SidebarProps {
@@ -27,7 +29,8 @@ export default function Sidebar({ activeView, setActiveView, onLogout }: Sidebar
     <div className="flex h-full flex-col p-4">
       <div className="mb-6 rounded-3xl border border-outline-variant bg-surface-container p-4">
         <p className="text-xs font-semibold uppercase tracking-[0.3em] text-on-surface-variant">Operations</p>
-        <p className="mt-2 text-lg font-semibold text-on-surface">Garbi Auto</p>
+        <p className="mt-2 text-lg font-semibold text-on-surface">{company.name}</p>
+        <p className="mt-1 text-sm text-on-surface-variant">{company.city}, {company.country}</p>
       </div>
 
       <nav className="flex flex-1 flex-col gap-2">
@@ -56,6 +59,13 @@ export default function Sidebar({ activeView, setActiveView, onLogout }: Sidebar
       </nav>
 
       <div className="mt-6 border-t border-outline-variant pt-4">
+        <div className="mb-4 rounded-2xl border border-outline-variant bg-surface-container-high p-3 text-xs text-on-surface-variant">
+          <p className="font-semibold uppercase tracking-[0.25em] text-on-surface">Contact</p>
+          <a href={`tel:${company.phone1}`} className="mt-2 block text-sm text-primary hover:underline">{company.phone1}</a>
+          <a href={`tel:${company.phone2}`} className="mt-1 block text-sm text-primary hover:underline">{company.phone2}</a>
+          <p className="mt-2 text-[11px] leading-5">{company.address}</p>
+          <p className="mt-1 text-[11px] leading-5">{company.addressAr}</p>
+        </div>
         <button
           type="button"
           onClick={onLogout}

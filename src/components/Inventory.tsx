@@ -99,6 +99,8 @@ export default function Inventory() {
   const [historyTarget, setHistoryTarget] = useState<InventoryItem | null>(null);
   const [historyEntries, setHistoryEntries] = useState<Array<{ id: string; quantity_ordered: number; status: string; created_at?: string | null; supplier?: string | null; note?: string | null }>>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [updatingQuantityId, setUpdatingQuantityId] = useState<number | string | null>(null);
+  const [updatingQuantityDelta, setUpdatingQuantityDelta] = useState<number | null>(null);
   const imageFileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -659,6 +661,11 @@ export default function Inventory() {
     setEditValue(String(item[field]));
   };
 
+  const cancelInlineEdit = () => {
+    setEditingCell(null);
+    setEditValue('');
+  };
+
   const saveInlineEdit = async () => {
     if (!editingCell) {
       return;
@@ -666,8 +673,7 @@ export default function Inventory() {
 
     const parsedValue = Number(editValue);
     if (!Number.isFinite(parsedValue) || parsedValue < 0) {
-      setEditingCell(null);
-      setEditValue('');
+      cancelInlineEdit();
       return;
     }
 
@@ -683,8 +689,7 @@ export default function Inventory() {
 
     if (error) {
       console.error('Unable to save inventory edit:', error.message);
-      setEditingCell(null);
-      setEditValue('');
+      cancelInlineEdit();
       return;
     }
 
@@ -692,8 +697,7 @@ export default function Inventory() {
       setParts((previousParts) => [data, ...previousParts.filter((part) => part.id.toString() !== data.id.toString())]);
     }
 
-    setEditingCell(null);
-    setEditValue('');
+    cancelInlineEdit();
   };
 
   const handleQuantityChange = async (itemId: number | string, delta: number) => {
@@ -703,40 +707,49 @@ export default function Inventory() {
       return;
     }
 
-    const nextQuantity = Math.max(0, part.quantity + delta);
+    if (delta < 0 && part.quantity === 0) {
+      return;
+    }
 
+    const nextQuantity = delta < 0 ? Math.max(0, part.quantity - 1) : part.quantity + 1;
+
+    setUpdatingQuantityId(itemId);
+    setUpdatingQuantityDelta(delta);
     setParts((previousParts) =>
       previousParts.map((item) => (item.id.toString() === itemKey ? { ...item, quantity: nextQuantity } : item))
     );
 
-    const { data, error } = await supabase
-      .from('inventory')
-      .update({ quantity: nextQuantity })
-      .eq('id', itemId)
-      .select()
-      .maybeSingle();
+    try {
+      const { error } = await supabase.from('inventory').update({ quantity: nextQuantity }).eq('id', itemId);
 
-    if (error) {
-      setParts((previousParts) =>
-        previousParts.map((item) => (item.id.toString() === itemKey ? { ...item, quantity: part.quantity } : item))
-      );
-      console.error('Unable to update quantity:', error.message);
-      return;
-    }
-
-    if (data) {
-      setParts((previousParts) => previousParts.map((item) => (item.id.toString() === itemKey ? { ...item, ...data } : item)));
+      if (error) {
+        setParts((previousParts) =>
+          previousParts.map((item) => (item.id.toString() === itemKey ? { ...item, quantity: part.quantity } : item))
+        );
+        setToastMessage('Impossible de mettre à jour la quantité.');
+        return;
+      }
+    } finally {
+      setUpdatingQuantityId(null);
+      setUpdatingQuantityDelta(null);
     }
   };
 
   const handleDeletePart = async (itemId: number | string) => {
+    const confirmed = window.confirm('Supprimer cette pièce de l’inventaire ?');
+    if (!confirmed) {
+      return;
+    }
+
     const { error } = await supabase.from('inventory').delete().eq('id', itemId);
     if (error) {
       console.error('Unable to delete inventory item:', error.message);
+      setToastMessage('Impossible de supprimer cette pièce.');
       return;
     }
 
     setParts((previousParts) => previousParts.filter((part) => part.id.toString() !== itemId.toString()));
+    setToastMessage('Pièce supprimée.');
   };
 
   const openModal = () => {
@@ -1102,23 +1115,58 @@ export default function Inventory() {
                               event.preventDefault();
                               saveInlineEdit();
                             }
+                            if (event.key === 'Escape') {
+                              event.preventDefault();
+                              cancelInlineEdit();
+                            }
                           }}
                           className="w-20 rounded border border-outline-variant bg-surface-container-lowest px-2 py-1 text-sm text-on-surface"
                           type="number"
                         />
                       ) : (
                         <div className="flex items-center gap-2">
-                          <button type="button" onClick={() => handleQuantityChange(item.id, -1)} className="rounded-full border border-outline-variant px-2 py-1 text-sm text-on-surface">
-                            −
+                          <button
+                            type="button"
+                            onClick={() => void handleQuantityChange(item.id, -1)}
+                            disabled={item.quantity === 0 || updatingQuantityId === item.id}
+                            className="flex h-7 w-7 items-center justify-center rounded-full border border-outline-variant px-2 py-1 text-sm text-on-surface disabled:cursor-not-allowed disabled:opacity-60"
+                            aria-label="Decrease quantity"
+                          >
+                            {updatingQuantityId === item.id && updatingQuantityDelta === -1 ? (
+                              <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeDasharray="56" />
+                              </svg>
+                            ) : (
+                              '−'
+                            )}
                           </button>
-                          <button type="button" onClick={() => startInlineEdit(item, 'quantity')} className="flex items-center gap-2 text-left">
+                          <button
+                            type="button"
+                            onDoubleClick={(event) => {
+                              event.preventDefault();
+                              startInlineEdit(item, 'quantity');
+                            }}
+                            className="flex items-center gap-2 text-left"
+                          >
                             <span className="font-data-tabular">{item.quantity}</span>
                             {isLowStock ? (
                               <span className="material-symbols-outlined text-base text-error" title={labels.table.lowStock}>warning</span>
                             ) : null}
                           </button>
-                          <button type="button" onClick={() => handleQuantityChange(item.id, 1)} className="rounded-full border border-outline-variant px-2 py-1 text-sm text-on-surface">
-                            +
+                          <button
+                            type="button"
+                            onClick={() => void handleQuantityChange(item.id, 1)}
+                            disabled={updatingQuantityId === item.id}
+                            className="flex h-7 w-7 items-center justify-center rounded-full border border-outline-variant px-2 py-1 text-sm text-on-surface disabled:cursor-not-allowed disabled:opacity-60"
+                            aria-label="Increase quantity"
+                          >
+                            {updatingQuantityId === item.id && updatingQuantityDelta === 1 ? (
+                              <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeDasharray="56" />
+                              </svg>
+                            ) : (
+                              '+'
+                            )}
                           </button>
                         </div>
                       )}

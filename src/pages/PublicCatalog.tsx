@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
 import { useCart } from '../context/CartContext';
+import { company } from '../config/company';
 
 interface CatalogItem {
   id: number | string;
@@ -136,7 +137,7 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
       <section className="relative overflow-hidden border-b border-red-500/30 bg-[radial-gradient(circle_at_top_left,_rgba(255,0,0,0.2),_transparent_35%),linear-gradient(135deg,_#09090b,_#111827)] px-4 py-16 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-8">
           <div className="max-w-3xl">
-            <p className="mb-4 text-sm font-semibold uppercase tracking-[0.45em] text-red-500">Garbi Auto Logistique</p>
+            <p className="mb-4 text-sm font-semibold uppercase tracking-[0.45em] text-red-500">{company.name}</p>
             <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl">
               Pièces auto aux meilleurs prix
             </h1>
@@ -150,9 +151,10 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.35em] text-red-400">Contact & emplacement</p>
                 <div className="mt-2 space-y-1 text-sm text-zinc-300">
-                  <p>📞 0678186802</p>
-                  <p>📞 0667440034</p>
-                  <p>📍 Khmis Zemamra, Zone Industrielle, en face de l'Auto et Ould Lbiad</p>
+                  <a href={`tel:${company.phone1}`} className="block hover:text-red-300">📞 {company.phone1}</a>
+                  <a href={`tel:${company.phone2}`} className="block hover:text-red-300">📞 {company.phone2}</a>
+                  <p>📍 {company.address}</p>
+                  <p>{company.addressAr}</p>
                 </div>
               </div>
             </div>
@@ -316,6 +318,21 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
           </div>
         )}
       </main>
+
+      <footer className="border-t border-zinc-800 bg-zinc-950/80 px-4 py-6 text-sm text-zinc-400 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="font-semibold text-zinc-200">{company.name}</p>
+            <p>{company.address}</p>
+            <p>{company.addressAr}</p>
+          </div>
+          <div className="space-y-1">
+            <a href={`tel:${company.phone1}`} className="block hover:text-red-300">{company.phone1}</a>
+            <a href={`tel:${company.phone2}`} className="block hover:text-red-300">{company.phone2}</a>
+            <a href={`mailto:${company.email}`} className="block hover:text-red-300">{company.email}</a>
+          </div>
+        </div>
+      </footer>
 
       {priceEditTarget ? (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 py-6 backdrop-blur-sm">
