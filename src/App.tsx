@@ -11,9 +11,11 @@ import AccessModal from './components/AdminLogin';
 import CartDrawer from './components/CartDrawer';
 import PublicCatalog from './pages/PublicCatalog';
 import PrintInvoice from './pages/PrintInvoice';
+import PrintHistoricalInvoice from './pages/PrintHistoricalInvoice';
+import InvoiceHistory from './components/InvoiceHistory';
 import { useCart } from './context/CartContext';
 
-type ActiveView = 'pos' | 'inventory' | 'invoices' | 'clients' | 'customers' | 'settings' | 'reports';
+type ActiveView = 'pos' | 'inventory' | 'invoices' | 'invoice-history' | 'clients' | 'customers' | 'settings' | 'reports';
 type Role = 'none' | 'manager' | 'employee';
 
 const canAccess = (view: ActiveView, role: Role): boolean => {
@@ -26,7 +28,7 @@ const canAccess = (view: ActiveView, role: Role): boolean => {
   }
 
   if (role === 'employee') {
-    return view === 'invoices' || view === 'clients';
+    return view === 'invoices' || view === 'invoice-history' || view === 'clients';
   }
 
   return false;
@@ -62,6 +64,7 @@ export default function App() {
 
   const isAdminRoute = currentRoute === '/admin' || currentRoute.startsWith('/admin/') || currentRoute === '/dashboard' || currentRoute.startsWith('/dashboard/');
   const isPrintRoute = currentRoute === '/print-invoice' || currentRoute.startsWith('/print-invoice/');
+  const isInvoiceHistoryPrintRoute = currentRoute === '/print-history' || currentRoute.startsWith('/print-history/');
 
   const handleViewChange = (view: ActiveView): void => {
     if (requiresAuth(view) && !canAccess(view, currentRole)) {
@@ -109,6 +112,8 @@ export default function App() {
     <div className="min-h-screen bg-surface-container-lowest text-on-surface">
       {isPrintRoute ? (
         <PrintInvoice />
+      ) : isInvoiceHistoryPrintRoute ? (
+        <PrintHistoricalInvoice />
       ) : isAdminRoute ? (
         <>
           <header className="fixed inset-x-0 top-0 z-30 flex h-20 items-center justify-between border-b border-outline-variant bg-surface-container/95 px-6 backdrop-blur-xl">
@@ -144,6 +149,7 @@ export default function App() {
               {activeView === 'pos' ? <POS /> : null}
               {activeView === 'inventory' ? <Inventory /> : null}
               {activeView === 'invoices' ? <InvoicePrint /> : null}
+              {activeView === 'invoice-history' ? <InvoiceHistory /> : null}
               {activeView === 'clients' ? <ClientDirectory onNavigateToPos={() => setActiveView('pos')} /> : null}
               {activeView === 'customers' ? <Customers /> : null}
               {activeView === 'settings' ? <Settings /> : null}

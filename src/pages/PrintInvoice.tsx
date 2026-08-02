@@ -3,6 +3,14 @@ import { supabase } from '../lib/supabase';
 import { useCart } from '../context/CartContext';
 import { company } from '../config/company';
 
+interface CustomerSuggestion {
+  id: number | string;
+  name: string;
+  phone: string | null;
+  address: string | null;
+  client_number?: string | null;
+}
+
 const STORAGE_KEY = 'public-invoice-customer-data';
 const moroccanCities = ['Casablanca', 'Rabat', 'Marrakech', 'Fès', 'Tanger', 'Agadir', 'Meknès', 'Oujda', 'Kénitra', 'Tétouan', 'Safi', 'El Jadida', 'Beni Mellal', 'Nador', 'Taza', 'Settat', 'Mohammedia', 'Khemmis Zemamra', 'Berrechid', 'Khouribga'];
 
@@ -41,7 +49,7 @@ function getInvoiceNumber() {
 }
 
 export default function PrintInvoice() {
-  const { cartItems, total } = useCart();
+  const { cartItems, showToast } = useCart();
   const [customerData, setCustomerData] = useState<CustomerInvoiceData>({
     name: '',
     clientNumber: '',
@@ -54,6 +62,19 @@ export default function PrintInvoice() {
   const [invoiceDate] = useState(() => new Date());
   const [isGeneratingClientNumber, setIsGeneratingClientNumber] = useState(false);
   const [clientNumberError, setClientNumberError] = useState('');
+  const [customerSuggestions, setCustomerSuggestions] = useState<CustomerSuggestion[]>([]);
+  const [showPhoneSuggestions, setShowPhoneSuggestions] = useState(false);
+
+  useEffect(() => {
+    const loadCustomerSuggestions = async () => {
+      const { data, error } = await supabase.from('customers').select('id, name, phone, address, client_number').order('name', { ascending: true });
+      if (!error) {
+        setCustomerSuggestions((data ?? []) as CustomerSuggestion[]);
+      }
+    };
+
+    void loadCustomerSuggestions();
+  }, []);
 
   useEffect(() => {
     const savedValue = window.localStorage.getItem(STORAGE_KEY);
@@ -96,6 +117,19 @@ export default function PrintInvoice() {
   const invoiceTime = `${invoiceDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
   const invoiceDateLabel = `${invoiceDate.toLocaleDateString('fr-FR')}`;
 
+  const visibleSuggestions = useMemo(() => {
+    const query = customerData.phone.trim().toLowerCase();
+    if (!query) {
+      return customerSuggestions.slice(0, 8);
+    }
+
+    return customerSuggestions.filter((item) => {
+      const nameMatch = item.name.toLowerCase().includes(query);
+      const phoneMatch = (item.phone ?? '').toLowerCase().includes(query);
+      return nameMatch || phoneMatch;
+    }).slice(0, 8);
+  }, [customerData.phone, customerSuggestions]);
+
   useEffect(() => {
     if (customerData.clientNumber) {
       return;
@@ -124,6 +158,85 @@ export default function PrintInvoice() {
       setClientNumberError('Unable to generate the next client number.');
     } finally {
       setIsGeneratingClientNumber(false);
+    }
+  };
+
+  const normalizePhone = (value: string) => value.replace(/\D/g, '');
+
+  const syncCustomerToSupabase = async () => {
+    const trimmedName = customerData.name.trim();
+    const normalizedPhone = normalizePhone(customerData.phone.trim());
+
+    if (!trimmedName && !normalizedPhone) {
+      return;
+    }
+
+    const { data: existingCustomers, error: fetchError } = await supabase.from('customers').select('id, name, phone, address, client_number').order('name', { ascending: true });
+    if (fetchError) {
+      throw fetchError;
+    }
+
+    const match = existingCustomers?.find((customer) => normalizePhone(customer.phone ?? '') === normalizedPhone);
+    const payload = {
+      name: trimmedName || (match?.name ?? 'Client'),
+      phone: customerData.phone.trim() || null,
+      address: customerData.address.trim() || null,
+      client_number: customerData.clientNumber.trim() || match?.client_number || null,
+      balance: 0,
+      last_transaction_date: new Date().toISOString().slice(0, 10)
+    };
+
+    if (match?.id) {
+      const { error: updateError } = await supabase.from('customers').update(payload).eq('id', match.id);
+      if (updateError) {
+        throw updateError;
+      }
+      return;
+    }
+
+    const { error: insertError } = await supabase.from('customers').insert(payload);
+    if (insertError) {
+      throw insertError;
+    }
+  };
+
+  const handlePrintInvoice = async () => {
+    if (cartItems.length === 0) {
+      showToast('Le panier est vide.');
+      return;
+    }
+
+    try {
+      await syncCustomerToSupabase();
+      const { error } = await supabase.from('invoice_history').insert({
+        invoice_number: invoiceNumber,
+        customer_name: customerData.name.trim() || 'Client',
+        customer_phone: customerData.phone.trim() || null,
+        customer_email: customerData.email.trim() || null,
+        customer_address: customerData.address.trim() || null,
+        customer_city: customerData.city.trim() || null,
+        items: cartItems.map((item) => ({
+          id: item.id,
+          name: item.name,
+          reference: item.reference,
+          quantity: item.quantity,
+          price: item.price
+        })),
+        total_amount: cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
+        status: 'pending'
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      showToast('Client et facture enregistrés.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to save the invoice history.';
+      console.error(message);
+      showToast('Impossible d’enregistrer le client ou la facture.');
+    } finally {
+      window.print();
     }
   };
 
@@ -210,13 +323,53 @@ export default function PrintInvoice() {
 
                 <label className="block text-sm text-zinc-700">
                   <span className="mb-1 block font-medium">Tél / الهاتف</span>
-                  <input
-                    value={customerData.phone}
-                    onChange={(event) => setCustomerData((current) => ({ ...current, phone: event.target.value }))}
-                    placeholder="0678186802"
-                    maxLength={20}
-                    className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-500"
-                  />
+                  <div className="relative">
+                    <input
+                      value={customerData.phone}
+                      onChange={(event) => setCustomerData((current) => ({ ...current, phone: event.target.value }))}
+                      onClick={() => setShowPhoneSuggestions(true)}
+                      onFocus={() => setShowPhoneSuggestions(true)}
+                      placeholder="0678186802"
+                      maxLength={20}
+                      className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-500"
+                    />
+                    {showPhoneSuggestions && visibleSuggestions.length > 0 ? (
+                      <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-2 shadow-xl shadow-black/10">
+                        {visibleSuggestions.map((customer) => (
+                          <button
+                            key={customer.id}
+                            type="button"
+                            onClick={() => {
+                              setCustomerData((current) => ({
+                                ...current,
+                                name: current.name.trim() ? current.name : customer.name,
+                                phone: customer.phone ?? current.phone,
+                                address: current.address.trim() ? current.address : customer.address ?? '',
+                                clientNumber: current.clientNumber.trim() ? current.clientNumber : customer.client_number ?? current.clientNumber
+                              }));
+                              setShowPhoneSuggestions(false);
+                            }}
+                            className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100"
+                          >
+                            <span>
+                              <span className="block font-semibold text-zinc-900">{customer.name}</span>
+                              <span className="text-zinc-500">{customer.phone}</span>
+                            </span>
+                            <span className="text-xs text-red-500">Sélectionner</span>
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowPhoneSuggestions(false);
+                          }}
+                          className="mt-2 flex w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 px-3 py-2 text-sm font-semibold text-red-600"
+                        >
+                          + Add new customer
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                 </label>
 
                 <label className="block text-sm text-zinc-700">
@@ -331,7 +484,7 @@ export default function PrintInvoice() {
 
       <button
         type="button"
-        onClick={() => window.print()}
+        onClick={() => void handlePrintInvoice()}
         className="fixed bottom-6 right-6 rounded-full bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-red-900/20 print:hidden"
       >
         طباعة / Imprimer

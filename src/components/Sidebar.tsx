@@ -1,6 +1,6 @@
 import { company } from '../config/company';
 
-type ActiveView = 'pos' | 'inventory' | 'invoices' | 'clients' | 'customers' | 'settings' | 'reports';
+type ActiveView = 'pos' | 'inventory' | 'invoices' | 'invoice-history' | 'clients' | 'customers' | 'settings' | 'reports';
 
 interface SidebarProps {
   activeView: ActiveView;
@@ -18,6 +18,7 @@ const navItems: NavItem[] = [
   { id: 'pos', label: 'POS', icon: 'point_of_sale' },
   { id: 'inventory', label: 'Inventory', icon: 'inventory_2' },
   { id: 'invoices', label: 'Invoices', icon: 'receipt_long' },
+  { id: 'invoice-history', label: 'Invoice History', icon: 'history' },
   { id: 'clients', label: 'Clients', icon: 'groups' },
   { id: 'customers', label: 'Customers', icon: 'people' },
   { id: 'settings', label: 'Settings', icon: 'settings' },

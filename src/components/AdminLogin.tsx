@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { company } from '../config/company';
 
-type ActiveView = 'pos' | 'inventory' | 'invoices' | 'clients' | 'customers' | 'settings' | 'reports';
+type ActiveView = 'pos' | 'inventory' | 'invoices' | 'invoice-history' | 'clients' | 'customers' | 'settings' | 'reports';
 type Role = 'manager' | 'employee';
 
 interface AccessModalProps {
-  pendingView: ActiveView | null;
+  pendingView?: ActiveView | null;
   onSuccess: (role: Role) => void;
   onCancel: () => void;
   error: string;
@@ -15,6 +15,7 @@ const viewLabels: Record<ActiveView, string> = {
   pos: 'POS',
   inventory: 'Inventory',
   invoices: 'Invoices',
+  'invoice-history': 'Invoice History',
   clients: 'Clients',
   customers: 'Customers',
   settings: 'Settings',
