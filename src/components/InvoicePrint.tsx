@@ -12,7 +12,10 @@ interface InvoiceItem {
 interface CustomerDetails {
   name: string;
   phone: string;
+  email?: string;
   address: string;
+  clientNumber?: string;
+  city?: string;
 }
 
 interface InvoiceTotals {
@@ -50,7 +53,10 @@ const sampleInvoices: InvoicePreview[] = [
     customer: {
       name: 'Apex Logistics',
       phone: '+212 6 00 11 22 33',
-      address: 'Rue Hassan II, Casablanca'
+      email: 'client@example.com',
+      address: 'Rue Hassan II, Casablanca',
+      clientNumber: 'CLI-001',
+      city: 'Casablanca'
     },
     items: [
       { id: 1, name: 'Battery 12V', reference: 'BAT-12V', quantity: 2, unitPrice: 380 },
@@ -67,7 +73,10 @@ const sampleInvoices: InvoicePreview[] = [
     customer: {
       name: 'MediTrans Supply',
       phone: '+212 6 10 44 66 88',
-      address: 'Bd Mohamed V, Rabat'
+      email: 'meditrans@example.com',
+      address: 'Bd Mohamed V, Rabat',
+      clientNumber: 'CLI-002',
+      city: 'Rabat'
     },
     items: [
       { id: 1, name: 'Oil Filter', reference: 'OIL-FLT', quantity: 4, unitPrice: 110 },
@@ -170,6 +179,10 @@ export default function InvoicePrint({
                   <div className="text-sm text-on-surface-variant">
                     <a href={`tel:${selectedInvoice.storePhone1}`} className="block text-primary hover:underline">📞 {selectedInvoice.storePhone1}</a>
                     <a href={`tel:${selectedInvoice.storePhone2}`} className="mt-1 block text-primary hover:underline">📞 {selectedInvoice.storePhone2}</a>
+                    <a href={`mailto:${company.email}`} className="mt-1 flex items-center gap-1 text-primary hover:underline">
+                      <span>📧</span>
+                      <span>{company.email}</span>
+                    </a>
                     <div className="mt-1 whitespace-pre-line">
                       <p>📍 {selectedInvoice.storeAddress.split('\n')[0]}</p>
                       <p>{selectedInvoice.storeAddress.split('\n')[1] ?? ''}</p>
@@ -192,8 +205,11 @@ export default function InvoicePrint({
               <div className="rounded-2xl border border-outline-variant bg-surface-container p-4">
                 <p className="text-sm font-semibold uppercase tracking-[0.3em] text-on-surface-variant">Bill To</p>
                 <p className="mt-3 font-semibold text-on-surface">{selectedInvoice.customer.name}</p>
-                <p className="mt-1 text-sm text-on-surface-variant">{selectedInvoice.customer.phone}</p>
-                <p className="mt-1 text-sm text-on-surface-variant">{selectedInvoice.customer.address}</p>
+                <p className="mt-1 text-sm text-on-surface-variant">N° Client: {selectedInvoice.customer.clientNumber ?? '—'}</p>
+                <p className="mt-1 text-sm text-on-surface-variant">Tél: {selectedInvoice.customer.phone}</p>
+                <p className="mt-1 text-sm text-on-surface-variant">Email: {selectedInvoice.customer.email ?? '—'}</p>
+                <p className="mt-1 text-sm text-on-surface-variant">Adresse: {selectedInvoice.customer.address}</p>
+                <p className="mt-1 text-sm text-on-surface-variant">Ville: {selectedInvoice.customer.city ?? '—'}</p>
               </div>
               <div className="rounded-2xl border border-outline-variant bg-surface-container p-4">
                 <p className="text-sm font-semibold uppercase tracking-[0.3em] text-on-surface-variant">Invoice Details</p>

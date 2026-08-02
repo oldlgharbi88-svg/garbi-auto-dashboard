@@ -153,6 +153,10 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
                 <div className="mt-2 space-y-1 text-sm text-zinc-300">
                   <a href={`tel:${company.phone1}`} className="block hover:text-red-300">📞 {company.phone1}</a>
                   <a href={`tel:${company.phone2}`} className="block hover:text-red-300">📞 {company.phone2}</a>
+                  <a href={`mailto:${company.email}`} className="flex items-center gap-1 hover:text-red-300">
+                    <span>📧</span>
+                    <span>{company.email}</span>
+                  </a>
                   <p>📍 {company.address}</p>
                   <p>{company.addressAr}</p>
                 </div>
@@ -329,7 +333,10 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
           <div className="space-y-1">
             <a href={`tel:${company.phone1}`} className="block hover:text-red-300">{company.phone1}</a>
             <a href={`tel:${company.phone2}`} className="block hover:text-red-300">{company.phone2}</a>
-            <a href={`mailto:${company.email}`} className="block hover:text-red-300">{company.email}</a>
+            <a href={`mailto:${company.email}`} className="flex items-center gap-1 hover:text-red-300">
+              <span>📧</span>
+              <span>{company.email}</span>
+            </a>
           </div>
         </div>
       </footer>

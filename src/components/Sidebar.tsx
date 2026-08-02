@@ -63,6 +63,10 @@ export default function Sidebar({ activeView, setActiveView, onLogout }: Sidebar
           <p className="font-semibold uppercase tracking-[0.25em] text-on-surface">Contact</p>
           <a href={`tel:${company.phone1}`} className="mt-2 block text-sm text-primary hover:underline">{company.phone1}</a>
           <a href={`tel:${company.phone2}`} className="mt-1 block text-sm text-primary hover:underline">{company.phone2}</a>
+          <a href={`mailto:${company.email}`} className="mt-1 flex items-center gap-1 text-sm text-primary hover:underline">
+            <span>📧</span>
+            <span>{company.email}</span>
+          </a>
           <p className="mt-2 text-[11px] leading-5">{company.address}</p>
           <p className="mt-1 text-[11px] leading-5">{company.addressAr}</p>
         </div>

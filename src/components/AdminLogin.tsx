@@ -134,6 +134,10 @@ export default function AccessModal({ pendingView, onSuccess, onCancel, error }:
           <p className="font-semibold text-on-surface">{company.name}</p>
           <a href={`tel:${company.phone1}`} className="mt-1 block text-primary hover:underline">{company.phone1}</a>
           <a href={`tel:${company.phone2}`} className="mt-1 block text-primary hover:underline">{company.phone2}</a>
+          <a href={`mailto:${company.email}`} className="mt-1 flex items-center justify-center gap-1 text-primary hover:underline">
+            <span>📧</span>
+            <span>{company.email}</span>
+          </a>
           <p className="mt-2">{company.address}</p>
           <p>{company.addressAr}</p>
         </div>

@@ -7,7 +7,7 @@ export const company = {
   addressAr: 'خميس زمامرة الحي الصناعي امام لاتولي ولد البيض',
   city: 'Khemis Zemamra',
   country: 'Maroc',
-  email: 'contact@garbi-auto.ma',
+  email: 'oldlghabi88@gmail.com',
   website: 'https://garbi-auto-dashboard.vercel.app',
   ice: '000000000000000',
   rc: '12345',
