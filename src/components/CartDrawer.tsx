@@ -55,7 +55,8 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
   };
 
   const formattedDiscountLabel = discountType === 'percentage' ? `${discountValue}%` : discountType === 'fixed' ? `${discountValue.toFixed(0)} MAD` : 'Aucune';
-  const grandTotal = subtotal - discountAmount;
+  const netAmount = Math.max(subtotal - discountAmount, 0);
+  const grandTotal = netAmount + taxAmount;
 
   if (!open) {
     return null;
@@ -211,12 +212,12 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
         </div>
         <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950/70 p-2">
           <div className="flex items-center justify-between text-xs text-zinc-400">
-            <span>Montant net</span>
-            <span>{grandTotal.toLocaleString('fr-FR')} MAD</span>
+            <span>Montant net (HT)</span>
+            <span>{netAmount.toLocaleString('fr-FR')} MAD</span>
           </div>
           <div className="mt-2 flex items-center justify-between text-lg font-semibold text-white">
             <span>Total</span>
-            <span>{(subtotal - discountAmount).toLocaleString('fr-FR')} MAD</span>
+            <span>{grandTotal.toLocaleString('fr-FR')} MAD</span>
           </div>
         </div>
       </div>
@@ -237,7 +238,7 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
           <span>🖨️ طباعة الفاتورة / Imprimer la facture</span>
         </button>
         <button type="button" className="rounded-2xl bg-red-600 px-3 py-2.5 text-sm font-semibold text-white">
-          Commander
+          Commander • {totalTTC.toLocaleString('fr-FR')} MAD
         </button>
       </div>
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
 import { useCart } from '../context/CartContext';
 import { company } from '../config/company';
+import PasswordGate from '../components/PasswordGate';
 
 interface CatalogItem {
   id: number | string;
@@ -246,6 +247,7 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
   };
 
   return (
+    <PasswordGate>
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <section className="relative overflow-hidden border-b border-red-500/30 bg-[radial-gradient(circle_at_top_left,_rgba(255,0,0,0.2),_transparent_35%),linear-gradient(135deg,_#09090b,_#111827)] px-4 py-16 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-8">
@@ -635,5 +637,6 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
         </div>
       ) : null}
     </div>
+    </PasswordGate>
   );
 }

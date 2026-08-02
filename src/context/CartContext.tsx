@@ -295,9 +295,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     return 0;
   }, [discountType, discountValue, subtotal]);
-  const taxAmount = useMemo(() => Math.max(subtotal - discountAmount, 0) * TAX_RATE, [discountAmount, subtotal]);
-  const totalTTC = useMemo(() => Math.max(subtotal - discountAmount, 0) + taxAmount, [discountAmount, subtotal, taxAmount]);
-  const total = subtotal;
+  const netAmount = useMemo(() => Math.max(subtotal - discountAmount, 0), [discountAmount, subtotal]);
+  const taxAmount = useMemo(() => netAmount * TAX_RATE, [netAmount]);
+  const totalTTC = useMemo(() => netAmount + taxAmount, [netAmount, taxAmount]);
+  const total = totalTTC;
 
   return (
     <CartContext.Provider
