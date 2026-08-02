@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { fetchCartCustomPricesFromSupabase, syncCartCustomPriceToSupabase } from '../lib/supabase';
 
-const CART_STORAGE_KEY = 'garbi-cart-items-v1';
+const CART_STORAGE_KEY = 'garbi_cart_items';
 
 export interface CartItem {
   id: string;
@@ -51,22 +52,68 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return undefined;
     }
 
-    try {
-      const savedCart = window.localStorage.getItem(CART_STORAGE_KEY);
-      if (savedCart) {
-        const parsed = JSON.parse(savedCart) as CartItem[];
+    const hydrateCart = async () => {
+      try {
+        const savedCart = window.localStorage.getItem(CART_STORAGE_KEY);
+        if (savedCart) {
+          const parsed = JSON.parse(savedCart) as CartItem[];
+          if (Array.isArray(parsed)) {
+            setCartItems(parsed);
+          }
+        }
+      } catch {
+        window.localStorage.removeItem(CART_STORAGE_KEY);
+      }
+
+      try {
+        const customPrices = await fetchCartCustomPricesFromSupabase();
+        if (Object.keys(customPrices).length > 0) {
+          setCartItems((previous) =>
+            previous.map((item) => {
+              const customPrice = customPrices[item.id];
+              if (typeof customPrice === 'number' && customPrice > 0) {
+                return {
+                  ...item,
+                  price: customPrice,
+                  original_price: item.original_price ?? item.price,
+                  price_modified: true,
+                  modification_reason: item.modification_reason ?? 'Synced from Supabase'
+                };
+              }
+
+              return item;
+            })
+          );
+        }
+      } catch (error) {
+        console.error('Failed to hydrate cart from Supabase', error);
+      }
+    };
+
+    void hydrateCart();
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== CART_STORAGE_KEY || !event.newValue) {
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(event.newValue) as CartItem[];
         if (Array.isArray(parsed)) {
           setCartItems(parsed);
         }
+      } catch {
+        window.localStorage.removeItem(CART_STORAGE_KEY);
       }
-    } catch {
-      window.localStorage.removeItem(CART_STORAGE_KEY);
-    }
+    };
+
+    window.addEventListener('storage', handleStorage);
 
     return () => {
       if (timeoutRef.current !== null) {
         window.clearTimeout(timeoutRef.current);
       }
+      window.removeEventListener('storage', handleStorage);
     };
   }, []);
 
@@ -158,6 +205,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         };
       })
     );
+
+    void syncCartCustomPriceToSupabase(id, normalizedPrice);
   };
 
   const clearCart = () => {

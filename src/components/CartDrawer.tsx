@@ -79,19 +79,29 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
                   </button>
                 </div>
                 <div className="text-right">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <div>
+                  <div className="flex items-center justify-end gap-2">
+                    <div className="min-w-0">
                       <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Prix</p>
-                      <p className="text-sm font-semibold text-white">{item.price.toLocaleString('fr-FR')} MAD</p>
+                      <div className="flex flex-wrap items-center justify-end gap-1">
+                        <p className={`text-sm font-semibold ${item.price_modified ? 'text-amber-300' : 'text-white'}`}>
+                          {item.price.toLocaleString('fr-FR')} MAD
+                        </p>
+                        {item.price_modified ? (
+                          <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">Modifié</span>
+                        ) : null}
+                      </div>
                     </div>
                     {canEditPrices ? (
                       <button
                         type="button"
+                        aria-label="Modifier le prix"
                         title="Modifier le prix / تعديل الثمن"
                         onClick={() => setEditingItem(item)}
-                        className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/20 text-amber-400 transition hover:bg-amber-500 hover:text-white"
+                        className={`flex h-9 w-9 flex-none items-center justify-center rounded-full transition-colors sm:h-10 sm:w-10 ${
+                          item.price_modified ? 'bg-amber-500/25 text-amber-300 ring-1 ring-amber-400/30' : 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
+                        }`}
                       >
-                        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-4.5 sm:w-4.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M12 20h9" />
                           <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
                         </svg>
@@ -104,7 +114,6 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
                   ) : null}
                   {item.price_modified ? (
                     <div className="mt-0.5 flex flex-wrap items-center justify-end gap-1 text-[10px] text-zinc-400">
-                      <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 font-medium text-amber-300">✏️</span>
                       <span className="line-through">{(item.original_price ?? item.price).toLocaleString('fr-FR')} MAD</span>
                     </div>
                   ) : null}
