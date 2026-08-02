@@ -11,9 +11,85 @@ interface CatalogItem {
   sellingprice: number;
   quantity: number;
   image_url?: string | null;
+  category?: string | null;
 }
 
-const categoryOptions = ['BMW', 'Mercedes', 'Audi', 'Peugeot', 'Renault', 'Volkswagen'];
+const brandOptions = [
+  { value: 'Dacia', icon: '🚗', color: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30' },
+  { value: 'Renault', icon: '🚙', color: 'bg-red-500/15 text-red-300 border-red-500/30' },
+  { value: 'Peugeot', icon: '🚘', color: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
+  { value: 'Citroën', icon: '🚗', color: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
+  { value: 'Volkswagen', icon: '🚐', color: 'bg-sky-500/15 text-sky-300 border-sky-500/30' },
+  { value: 'Ford', icon: '🚚', color: 'bg-blue-500/15 text-blue-300 border-blue-500/30' },
+  { value: 'Opel', icon: '🚗', color: 'bg-purple-500/15 text-purple-300 border-purple-500/30' },
+  { value: 'Fiat', icon: '🚕', color: 'bg-pink-500/15 text-pink-300 border-pink-500/30' },
+  { value: 'Toyota', icon: '🚙', color: 'bg-orange-500/15 text-orange-300 border-orange-500/30' },
+  { value: 'Hyundai', icon: '🚗', color: 'bg-lime-500/15 text-lime-300 border-lime-500/30' },
+  { value: 'Kia', icon: '🚘', color: 'bg-violet-500/15 text-violet-300 border-violet-500/30' },
+  { value: 'Nissan', icon: '🚙', color: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30' },
+  { value: 'Suzuki', icon: '🚗', color: 'bg-teal-500/15 text-teal-300 border-teal-500/30' },
+  { value: 'Mitsubishi', icon: '🚗', color: 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30' },
+  { value: 'Seat', icon: '🚗', color: 'bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/30' },
+  { value: 'Skoda', icon: '🚐', color: 'bg-rose-500/15 text-rose-300 border-rose-500/30' },
+  { value: 'BMW', icon: '🏎️', color: 'bg-zinc-500/15 text-zinc-200 border-zinc-500/30' },
+  { value: 'Mercedes', icon: '🚘', color: 'bg-stone-500/15 text-stone-200 border-stone-500/30' },
+  { value: 'Audi', icon: '🚗', color: 'bg-slate-500/15 text-slate-200 border-slate-500/30' },
+  { value: 'Chery', icon: '🚙', color: 'bg-cyan-600/15 text-cyan-200 border-cyan-600/30' },
+  { value: 'Geely', icon: '🚗', color: 'bg-emerald-600/15 text-emerald-200 border-emerald-600/30' },
+  { value: 'JAC', icon: '🚐', color: 'bg-amber-600/15 text-amber-200 border-amber-600/30' },
+  { value: 'MG', icon: '🚗', color: 'bg-red-600/15 text-red-200 border-red-600/30' }
+];
+
+const categoryFilterOptions = [
+  { value: 'all', label: 'Toutes les catégories', icon: '🧰' },
+  { value: 'amortisseurs', label: 'Amortisseurs', icon: '🛞' },
+  { value: 'freins', label: 'Freins', icon: '🛑' },
+  { value: 'filtres', label: 'Filtres', icon: '🪟' },
+  { value: 'pneus', label: 'Pneus', icon: '⛱️' },
+  { value: 'batteries', label: 'Batteries', icon: '🔋' },
+  { value: 'huile_moteur', label: 'Huile moteur', icon: '🛢️' },
+  { value: 'courroies', label: 'Courroies', icon: '🔗' },
+  { value: 'bougies', label: 'Bougies', icon: '⚡' },
+  { value: 'phares', label: 'Phares', icon: '💡' },
+  { value: 'embrayage', label: 'Embrayage', icon: '⚙️' }
+];
+
+const inferCategory = (item: CatalogItem): string => {
+  const haystack = `${item.category ?? ''} ${item.name} ${item.reference} ${item.compatible_cars}`.toLowerCase();
+
+  if (/amort|suspens/i.test(haystack)) {
+    return 'amortisseurs';
+  }
+  if (/frein|disque|plaquette|étrier/i.test(haystack)) {
+    return 'freins';
+  }
+  if (/filtre|filter/i.test(haystack)) {
+    return 'filtres';
+  }
+  if (/pneu|roue|caoutch/i.test(haystack)) {
+    return 'pneus';
+  }
+  if (/batter|accu/i.test(haystack)) {
+    return 'batteries';
+  }
+  if (/huile|huil/i.test(haystack)) {
+    return 'huile_moteur';
+  }
+  if (/courroie|ceinture|belt/i.test(haystack)) {
+    return 'courroies';
+  }
+  if (/bougie|spark/i.test(haystack)) {
+    return 'bougies';
+  }
+  if (/phare|headlight/i.test(haystack)) {
+    return 'phares';
+  }
+  if (/embray|clutch/i.test(haystack)) {
+    return 'embrayage';
+  }
+
+  return 'autres';
+};
 
 interface PublicCatalogProps {
   canEditPrices?: boolean;
@@ -23,7 +99,9 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [sortBy, setSortBy] = useState<'relevance' | 'price-asc' | 'price-desc' | 'name'>('relevance');
   const [selectedItem, setSelectedItem] = useState<CatalogItem | null>(null);
   const [priceEditTarget, setPriceEditTarget] = useState<CatalogItem | null>(null);
   const [showOutOfStock, setShowOutOfStock] = useState(true);
@@ -48,23 +126,52 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
   const filteredItems = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
 
-    return items.filter((item) => {
+    const filtered = items.filter((item) => {
       if (!showOutOfStock && item.quantity <= 0) {
         return false;
       }
+
+      const resolvedCategory = inferCategory(item);
       const matchesSearch =
         normalizedSearch.length === 0 ||
         item.name.toLowerCase().includes(normalizedSearch) ||
         item.reference.toLowerCase().includes(normalizedSearch) ||
         item.compatible_cars.toLowerCase().includes(normalizedSearch);
 
-      const matchesCategory =
-        selectedCategories.length === 0 ||
-        selectedCategories.some((category) => item.compatible_cars.toLowerCase().includes(category.toLowerCase()));
+      const matchesCategory = selectedCategory === 'all' || resolvedCategory === selectedCategory;
+      const matchesBrand =
+        selectedBrands.length === 0 ||
+        selectedBrands.some((brand) => item.compatible_cars.toLowerCase().includes(brand.toLowerCase()));
 
-      return matchesSearch && matchesCategory;
+      return matchesSearch && matchesCategory && matchesBrand;
     });
-  }, [items, search, selectedCategories, showOutOfStock]);
+
+    const sorted = [...filtered];
+    switch (sortBy) {
+      case 'price-asc':
+        return sorted.sort((left, right) => left.sellingprice - right.sellingprice);
+      case 'price-desc':
+        return sorted.sort((left, right) => right.sellingprice - left.sellingprice);
+      case 'name':
+        return sorted.sort((left, right) => left.name.localeCompare(right.name, 'fr'));
+      default:
+        return sorted;
+    }
+  }, [items, search, selectedBrands, selectedCategory, showOutOfStock, sortBy]);
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    categoryFilterOptions.forEach((option) => {
+      counts[option.value] = 0;
+    });
+
+    items.forEach((item) => {
+      const category = inferCategory(item);
+      counts[category] = (counts[category] ?? 0) + 1;
+    });
+
+    return counts;
+  }, [items]);
 
   useEffect(() => {
     if (!toastMessage) {
@@ -75,10 +182,16 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
     return () => window.clearTimeout(timerId);
   }, [toastMessage]);
 
-  const toggleCategory = (category: string) => {
-    setSelectedCategories((current) =>
-      current.includes(category) ? current.filter((entry) => entry !== category) : [...current, category]
-    );
+  const toggleBrand = (brand: string) => {
+    setSelectedBrands((current) => (current.includes(brand) ? current.filter((entry) => entry !== brand) : [...current, brand]));
+  };
+
+  const resetFilters = () => {
+    setSearch('');
+    setSelectedBrands([]);
+    setSelectedCategory('all');
+    setSortBy('relevance');
+    setShowOutOfStock(true);
   };
 
   const openPriceEditor = (item: CatalogItem) => {
@@ -165,7 +278,7 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-white/10 p-4 shadow-2xl shadow-black/30 backdrop-blur-xl">
-            <div className="flex flex-col gap-4 lg:flex-row">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
               <label className="flex flex-1 items-center gap-3 rounded-2xl border border-zinc-700 bg-zinc-900/80 px-4 py-3">
                 <span className="text-red-500">🔎</span>
                 <input
@@ -175,19 +288,53 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
                   className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-500"
                 />
               </label>
-              <div className="flex flex-wrap gap-2">
-                {categoryOptions.map((category) => {
-                  const active = selectedCategories.includes(category);
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={selectedCategory}
+                  onChange={(event) => setSelectedCategory(event.target.value)}
+                  className="rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-zinc-200 outline-none"
+                >
+                  {categoryFilterOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={sortBy}
+                  onChange={(event) => setSortBy(event.target.value as 'relevance' | 'price-asc' | 'price-desc' | 'name')}
+                  className="rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-zinc-200 outline-none"
+                >
+                  <option value="relevance">Pertinence</option>
+                  <option value="price-asc">Prix ↑</option>
+                  <option value="price-desc">Prix ↓</option>
+                  <option value="name">Nom A-Z</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-red-400 hover:text-red-300"
+                >
+                  Reset filters
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 overflow-x-auto pb-1">
+              <div className="flex min-w-max gap-2">
+                {brandOptions.map((brand) => {
+                  const active = selectedBrands.includes(brand.value);
                   return (
                     <button
-                      key={category}
+                      key={brand.value}
                       type="button"
-                      onClick={() => toggleCategory(category)}
-                      className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                        active ? 'border-red-500 bg-red-600 text-white' : 'border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-red-400'
+                      onClick={() => toggleBrand(brand.value)}
+                      className={`rounded-full border px-3 py-2 text-sm font-medium transition duration-200 ${
+                        active ? `${brand.color} shadow-lg shadow-black/20` : 'border-zinc-700 bg-zinc-900/80 text-zinc-300 hover:border-red-400'
                       }`}
                     >
-                      {category}
+                      <span className="mr-2">{brand.icon}</span>
+                      {brand.value}
                     </button>
                   );
                 })}
@@ -203,10 +350,17 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
             <h2 className="text-2xl font-semibold text-white">Catalogue public</h2>
             <p className="text-sm text-zinc-400">{filteredItems.length} pièces affichées</p>
           </div>
-          <label className="flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/70 px-3 py-2 text-sm text-zinc-300">
-            <input type="checkbox" checked={showOutOfStock} onChange={() => setShowOutOfStock((current) => !current)} className="rounded border-zinc-700 bg-zinc-900" />
-            Afficher les pièces en rupture
-          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            {categoryFilterOptions.filter((option) => option.value !== 'all').map((option) => (
+              <span key={option.value} className="rounded-full border border-zinc-800 bg-zinc-900/70 px-3 py-1 text-xs text-zinc-400">
+                {option.label}: {categoryCounts[option.value] ?? 0}
+              </span>
+            ))}
+            <label className="flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/70 px-3 py-2 text-sm text-zinc-300">
+              <input type="checkbox" checked={showOutOfStock} onChange={() => setShowOutOfStock((current) => !current)} className="rounded border-zinc-700 bg-zinc-900" />
+              Afficher les pièces en rupture
+            </label>
+          </div>
         </div>
 
         {loading ? (
