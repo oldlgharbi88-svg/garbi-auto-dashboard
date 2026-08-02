@@ -64,6 +64,7 @@ export default function PrintInvoice() {
   const [clientNumberError, setClientNumberError] = useState('');
   const [customerSuggestions, setCustomerSuggestions] = useState<CustomerSuggestion[]>([]);
   const [showPhoneSuggestions, setShowPhoneSuggestions] = useState(false);
+  const [invoiceStatus, setInvoiceStatus] = useState<'paid' | 'pending'>('pending');
 
   useEffect(() => {
     const loadCustomerSuggestions = async () => {
@@ -223,7 +224,7 @@ export default function PrintInvoice() {
           price: item.price
         })),
         total_amount: totalTTC,
-        status: 'pending'
+        status: invoiceStatus
       });
 
       if (error) {
@@ -275,6 +276,9 @@ export default function PrintInvoice() {
               <p className="mt-2">N°: {invoiceNumber}</p>
               <p>Date: {invoiceDateLabel}</p>
               <p>Heure: {invoiceTime}</p>
+              <div className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] ${invoiceStatus === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                {invoiceStatus === 'paid' ? 'Payée' : 'En attente'}
+              </div>
             </div>
           </header>
 
@@ -418,6 +422,25 @@ export default function PrintInvoice() {
               <p className="text-sm font-semibold uppercase tracking-[0.3em] text-zinc-500">Conditions</p>
               <p className="mt-3 text-sm text-zinc-700">Paiement à la livraison</p>
               <p className="mt-1 text-sm text-zinc-700">TVA non applicable, art. 89</p>
+              <div className="mt-4 rounded-2xl border border-zinc-200 bg-white p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-500">Statut de la facture</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setInvoiceStatus('pending')}
+                    className={`rounded-full px-3 py-2 text-sm font-semibold transition ${invoiceStatus === 'pending' ? 'bg-amber-500 text-white' : 'bg-zinc-100 text-zinc-700'}`}
+                  >
+                    En attente
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInvoiceStatus('paid')}
+                    className={`rounded-full px-3 py-2 text-sm font-semibold transition ${invoiceStatus === 'paid' ? 'bg-emerald-600 text-white' : 'bg-zinc-100 text-zinc-700'}`}
+                  >
+                    Payée
+                  </button>
+                </div>
+              </div>
             </div>
           </section>
 
