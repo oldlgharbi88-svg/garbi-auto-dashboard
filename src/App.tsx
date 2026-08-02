@@ -18,6 +18,8 @@ import { useCart } from './context/CartContext';
 type ActiveView = 'pos' | 'inventory' | 'invoices' | 'invoice-history' | 'clients' | 'customers' | 'settings' | 'reports';
 type Role = 'none' | 'manager' | 'employee';
 
+const employeeAccessibleViews: ActiveView[] = ['invoices', 'invoice-history', 'clients'];
+
 const canAccess = (view: ActiveView, role: Role): boolean => {
   if (view === 'pos') {
     return true;
@@ -28,7 +30,7 @@ const canAccess = (view: ActiveView, role: Role): boolean => {
   }
 
   if (role === 'employee') {
-    return view === 'invoices' || view === 'invoice-history' || view === 'clients';
+    return employeeAccessibleViews.includes(view);
   }
 
   return false;
@@ -44,7 +46,7 @@ export default function App() {
   const [accessError, setAccessError] = useState<string>('');
   const [currentRoute, setCurrentRoute] = useState<string>(() => window.location.pathname);
   const [showCartPanel, setShowCartPanel] = useState<boolean>(false);
-  const { cartCount, toast, clearToast } = useCart();
+  const { cartCount, toast } = useCart();
 
   useEffect(() => {
     const handleLocationChange = () => {
