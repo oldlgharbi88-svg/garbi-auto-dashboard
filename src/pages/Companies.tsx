@@ -54,7 +54,7 @@ const initialCompanies: CompanyRecord[] = [
 ];
 
 export default function CompaniesPage() {
-  const [companies] = useState(initialCompanies);
+  const [companies, setCompanies] = useState(initialCompanies);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<CompanyRecord | null>(null);
@@ -162,9 +162,61 @@ export default function CompaniesPage() {
         </div>
       </div>
 
-      <CompanyFormModal open={showAddModal} onClose={() => setShowAddModal(false)} />
-      <CompanyDetailModal open={showDetailModal} companyName={selectedCompany?.name ?? 'Societe'} onClose={() => { setShowDetailModal(false); setSelectedCompany(null); }} />
-      <AddPaymentModal open={showPaymentModal} onClose={() => { setShowPaymentModal(false); setSelectedCompany(null); }} />
+      <CompanyFormModal
+        open={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSave={(company) => {
+          setCompanies((current) => [
+            {
+              ...company,
+              invoices: []
+            },
+            ...current
+          ]);
+          setShowAddModal(false);
+        }}
+      />
+      <CompanyDetailModal
+        open={showDetailModal}
+        company={selectedCompany}
+        onClose={() => {
+          setShowDetailModal(false);
+          setSelectedCompany(null);
+        }}
+      />
+      <AddPaymentModal
+        open={showPaymentModal}
+        company={selectedCompany}
+        onClose={() => {
+          setShowPaymentModal(false);
+          setSelectedCompany(null);
+        }}
+        onSave={(invoiceNumber, amount) => {
+          setCompanies((current) =>
+            current.map((company) => {
+              if (company.id !== selectedCompany?.id) {
+                return company;
+              }
+
+              return {
+                ...company,
+                invoices: company.invoices.map((invoice) =>
+                  invoice.invoiceNumber === invoiceNumber
+                    ? {
+                        ...invoice,
+                        paidAmount: invoice.paidAmount + amount,
+                        remainingAmount: Math.max(invoice.remainingAmount - amount, 0),
+                        status: invoice.paidAmount + amount >= invoice.totalAmount ? 'paid' : 'pending'
+                      }
+                    : invoice
+                )
+              };
+            })
+          );
+          setShowPaymentModal(false);
+          setSelectedCompany(null);
+        }}
+      />
     </div>
   );
 }
