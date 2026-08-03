@@ -62,96 +62,107 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
   }
 
   return (
-    <div className="fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col border-l border-zinc-800 bg-zinc-950/95 p-4 shadow-2xl shadow-black/50 backdrop-blur-xl sm:p-5">
-      <div className="flex items-center justify-between">
-        <div>
+    <div className="fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col overflow-hidden border-l border-zinc-800 bg-zinc-950/95 p-4 shadow-2xl shadow-black/50 backdrop-blur-xl sm:p-5">
+      <div className="flex flex-none items-center justify-between gap-3">
+        <div className="min-w-0">
           <h2 className="text-lg font-semibold text-white">Votre panier</h2>
           <p className="text-xs text-zinc-400">{cartCount} article{cartCount > 1 ? 's' : ''}</p>
         </div>
-        <button type="button" onClick={onClose} className="text-sm text-zinc-400">
+        <button type="button" onClick={onClose} className="rounded-full border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 transition hover:bg-zinc-800 hover:text-white">
           Fermer
         </button>
       </div>
 
-      <div className="mt-4 flex-1 space-y-3 overflow-y-auto pr-1">
+      <div className="mt-4 flex-1 min-h-0 overflow-hidden">
+        <div className="flex h-full flex-col gap-3 overflow-y-auto overflow-x-hidden pr-1 sm:pr-2">
         {cartItems.length === 0 ? (
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 text-sm text-zinc-400">
             Le panier est vide pour le moment.
           </div>
         ) : (
           cartItems.map((item) => (
-            <div key={item.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3">
-              <div className="flex items-start justify-between gap-2">
+            <div key={item.id} className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3">
+              <div className="flex items-start gap-3">
+                <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-zinc-800 bg-zinc-800/60 sm:h-20 sm:w-20">
+                  {item.image_url ? (
+                    <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-zinc-400">GA</span>
+                  )}
+                </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-white">{item.name}</p>
-                  <p className="truncate text-xs text-zinc-400">{item.reference}</p>
-                </div>
-                <button type="button" onClick={() => removeFromCart(item.id)} className="shrink-0 text-xs text-red-400">
-                  Supprimer
-                </button>
-              </div>
-              <div className="mt-3 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1 rounded-full border border-zinc-700 px-1.5 py-1">
-                  <button
-                    type="button"
-                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                    className="h-6 w-6 rounded-full bg-zinc-800 text-sm text-white"
-                  >
-                    -
-                  </button>
-                  <span className="min-w-5 text-center text-xs text-white">{item.quantity}</span>
-                  <button
-                    type="button"
-                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                    className="h-6 w-6 rounded-full bg-zinc-800 text-sm text-white"
-                  >
-                    +
-                  </button>
-                </div>
-                <div className="text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <div className="min-w-0">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Prix</p>
-                      <div className="flex flex-wrap items-center justify-end gap-1">
-                        <p className={`text-sm font-semibold ${item.price_modified ? 'text-amber-300' : 'text-white'}`} aria-label={`Prix ${item.price.toLocaleString('fr-FR')} Moroccan Dirhams`}>
-                          {item.price.toLocaleString('fr-FR')} MAD
-                        </p>
-                        {item.price_modified ? (
-                          <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">Modifié</span>
-                        ) : null}
-                      </div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="line-clamp-2 break-words text-sm font-semibold text-white sm:text-base" title={item.name}>{item.name}</p>
+                      <p className="mt-1 break-words text-xs text-zinc-400">{item.reference}</p>
                     </div>
-                    {canEditPrices ? (
+                    <button type="button" onClick={() => removeFromCart(item.id)} className="flex h-8 flex-shrink-0 items-center justify-center rounded-full border border-red-500/30 px-2.5 text-[11px] font-medium text-red-400 transition hover:bg-red-500/10 sm:text-xs">
+                      Supprimer
+                    </button>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-1 rounded-full border border-zinc-700 bg-zinc-950/60 p-1">
                       <button
                         type="button"
-                        aria-label="Modifier le prix"
-                        title="Modifier le prix / تعديل الثمن"
-                        onClick={() => setEditingItem(item)}
-                        className={`flex h-9 w-9 flex-none items-center justify-center rounded-full transition-colors sm:h-10 sm:w-10 ${
-                          item.price_modified ? 'bg-amber-500/25 text-amber-300 ring-1 ring-amber-400/30' : 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
-                        }`}
+                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-sm font-semibold text-white transition hover:bg-zinc-700"
                       >
-                        <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-4.5 sm:w-4.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M12 20h9" />
-                          <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                        </svg>
+                        -
                       </button>
-                    ) : null}
-                  </div>
-                  <p className="mt-0.5 text-[11px] text-zinc-400" aria-label={`Total ligne ${item.name}: ${(item.price * item.quantity).toLocaleString('fr-FR')} Moroccan Dirhams`}>Total: {(item.price * item.quantity).toLocaleString('fr-FR')} MAD</p>
-                  {item.stock <= 0 ? (
-                    <p className="mt-0.5 text-[11px] font-semibold text-rose-400">⚠️ Rupture</p>
-                  ) : null}
-                  {item.price_modified ? (
-                    <div className="mt-0.5 flex flex-wrap items-center justify-end gap-1 text-[10px] text-zinc-400">
-                      <span className="line-through">{(item.original_price ?? item.price).toLocaleString('fr-FR')} MAD</span>
+                      <span className="min-w-6 text-center text-sm font-semibold text-white">{item.quantity}</span>
+                      <button
+                        type="button"
+                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-sm font-semibold text-white transition hover:bg-zinc-700"
+                      >
+                        +
+                      </button>
                     </div>
-                  ) : null}
+                    <div className="w-24 text-right sm:w-28">
+                      <div className="flex flex-col items-end gap-1">
+                        <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Prix</p>
+                        <div className="flex flex-wrap items-center justify-end gap-1">
+                          <p className={`text-sm font-semibold whitespace-nowrap ${item.price_modified ? 'text-amber-300' : 'text-white'}`} aria-label={`Prix ${item.price.toLocaleString('fr-FR')} Moroccan Dirhams`}>
+                            {item.price.toLocaleString('fr-FR')} MAD
+                          </p>
+                          {item.price_modified ? (
+                            <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">Modifié</span>
+                          ) : null}
+                        </div>
+                        {canEditPrices ? (
+                          <button
+                            type="button"
+                            aria-label="Modifier le prix"
+                            title="Modifier le prix / تعديل الثمن"
+                            onClick={() => setEditingItem(item)}
+                            className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+                              item.price_modified ? 'bg-amber-500/25 text-amber-300 ring-1 ring-amber-400/30' : 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
+                            }`}
+                          >
+                            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 20h9" />
+                              <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                            </svg>
+                          </button>
+                        ) : null}
+                      </div>
+                      <p className="mt-1 text-[11px] text-zinc-400" aria-label={`Total ligne ${item.name}: ${(item.price * item.quantity).toLocaleString('fr-FR')} Moroccan Dirhams`}>Total: {(item.price * item.quantity).toLocaleString('fr-FR')} MAD</p>
+                      {item.stock <= 0 ? (
+                        <p className="mt-1 text-[11px] font-semibold text-rose-400">⚠️ Rupture</p>
+                      ) : null}
+                      {item.price_modified ? (
+                        <div className="mt-1 flex flex-wrap items-center justify-end gap-1 text-[10px] text-zinc-400">
+                          <span className="line-through">{(item.original_price ?? item.price).toLocaleString('fr-FR')} MAD</span>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           ))
         )}
+        </div>
       </div>
 
       {cartItems.length > 0 ? (
@@ -187,28 +198,28 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
           </div>
           <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950/70 p-2">
             <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">Remise</p>
-            <div className="mt-2 flex flex-wrap gap-2">
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {presetDiscounts.map((value) => (
-                <button key={value} type="button" onClick={() => handlePresetDiscount(value)} className={`rounded-full px-2.5 py-1 text-xs font-medium ${discountType === 'percentage' && discountValue === value ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-300'}`}>
+                <button key={value} type="button" onClick={() => handlePresetDiscount(value)} className={`min-h-10 rounded-full px-2.5 py-2 text-sm font-medium transition ${discountType === 'percentage' && discountValue === value ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}>
                   {value}%
                 </button>
               ))}
             </div>
-            <div className="mt-2 flex items-center gap-2">
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row">
               <input
                 value={customDiscountInput}
                 onChange={(event) => setCustomDiscountInput(event.target.value)}
                 placeholder="5% ou 50"
                 className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-sm text-white outline-none"
               />
-              <button type="button" onClick={handleApplyCustomDiscount} className="rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white">
+              <button type="button" onClick={handleApplyCustomDiscount} className="w-full rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-500 sm:w-auto">
                 Appliquer
               </button>
             </div>
-            <div className="mt-2 flex items-center justify-between text-[11px] text-zinc-400">
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-400">
               <span>{discountType === 'none' ? 'Aucune remise' : `Remise active: ${formattedDiscountLabel}`}</span>
               {discountType === 'none' ? null : (
-                <button type="button" onClick={handleClearDiscount} className="text-red-400">
+                <button type="button" onClick={handleClearDiscount} className="text-red-400 transition hover:text-red-300">
                   Effacer
                 </button>
               )}
@@ -217,12 +228,12 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
         </div>
       ) : null}
 
-      <div className="mt-3 flex flex-col gap-2">
+      <div className="sticky bottom-0 z-10 mt-3 flex flex-col gap-2 border-t border-zinc-800 bg-zinc-950/95 pt-3">
         <button
           type="button"
           onClick={onOpenInvoice}
           disabled={cartItems.length === 0}
-          className="flex items-center justify-center gap-2 rounded-2xl border-2 border-red-600 px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-700 disabled:text-zinc-500 disabled:hover:bg-transparent"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-red-600 px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-700 disabled:text-zinc-500 disabled:hover:bg-transparent"
         >
           <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current stroke-2" aria-hidden="true">
             <path d="M8 3h8" />
@@ -232,7 +243,7 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
           </svg>
           <span>🖨️ طباعة الفاتورة / Imprimer la facture</span>
         </button>
-        <button type="button" className="rounded-2xl bg-red-600 px-3 py-2.5 text-sm font-semibold text-white" aria-label={`Commander pour ${totalTTC.toLocaleString('fr-FR')} Moroccan Dirhams`}>
+        <button type="button" className="w-full rounded-2xl bg-red-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-red-500 active:scale-[0.99]" aria-label={`Commander pour ${totalTTC.toLocaleString('fr-FR')} Moroccan Dirhams`}>
           Commander • {totalTTC.toLocaleString('fr-FR')} MAD
         </button>
       </div>
