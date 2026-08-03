@@ -1,11 +1,12 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { fetchCartCustomPricesFromSupabase, syncCartCustomPriceToSupabase } from '../lib/supabase';
+import { useCartTotals, type DiscountType as CartTotalsDiscountType } from '../hooks/useCartTotals';
 
 const CART_STORAGE_KEY = 'garbi_cart_items';
 const DISCOUNT_STORAGE_KEY = 'garbi_cart_discount';
 const TAX_RATE = 0.2;
 
-type DiscountType = 'none' | 'percentage' | 'fixed';
+type DiscountType = CartTotalsDiscountType;
 
 export interface CartItem {
   id: string;
@@ -282,22 +283,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const cartCount = useMemo(() => cartItems.reduce((total, item) => total + item.quantity, 0), [cartItems]);
-  const subtotal = useMemo(() => cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0), [cartItems]);
-  const discountAmount = useMemo(() => {
-    if (discountType === 'percentage') {
-      const percentage = Math.max(0, Math.min(100, discountValue));
-      return subtotal * (percentage / 100);
-    }
-
-    if (discountType === 'fixed') {
-      return Math.min(Math.max(discountValue, 0), subtotal);
-    }
-
-    return 0;
-  }, [discountType, discountValue, subtotal]);
-  const netAmount = useMemo(() => Math.max(subtotal - discountAmount, 0), [discountAmount, subtotal]);
-  const taxAmount = useMemo(() => netAmount * TAX_RATE, [netAmount]);
-  const totalTTC = useMemo(() => netAmount + taxAmount, [netAmount, taxAmount]);
+  const { subtotal, remiseAmount, htAfterRemise, tvaAmount, totalTTC } = useCartTotals({
+    items: cartItems.map((item) => ({ price: item.price, quantity: item.quantity })),
+    discountType,
+    discountValue,
+    taxRate: TAX_RATE,
+    taxEnabled: true,
+    currency: 'MAD'
+  });
+  const discountAmount = remiseAmount;
+  const netAmount = htAfterRemise;
+  const taxAmount = tvaAmount;
   const total = totalTTC;
 
   return (

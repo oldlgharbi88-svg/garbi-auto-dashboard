@@ -55,8 +55,7 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
   };
 
   const formattedDiscountLabel = discountType === 'percentage' ? `${discountValue}%` : discountType === 'fixed' ? `${discountValue.toFixed(0)} MAD` : 'Aucune';
-  const netAmount = Math.max(subtotal - discountAmount, 0);
-  const grandTotal = netAmount + taxAmount;
+  const htAfterRemise = Math.max(subtotal - discountAmount, 0);
 
   if (!open) {
     return null;
@@ -114,7 +113,7 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
                     <div className="min-w-0">
                       <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Prix</p>
                       <div className="flex flex-wrap items-center justify-end gap-1">
-                        <p className={`text-sm font-semibold ${item.price_modified ? 'text-amber-300' : 'text-white'}`}>
+                        <p className={`text-sm font-semibold ${item.price_modified ? 'text-amber-300' : 'text-white'}`} aria-label={`Prix ${item.price.toLocaleString('fr-FR')} Moroccan Dirhams`}>
                           {item.price.toLocaleString('fr-FR')} MAD
                         </p>
                         {item.price_modified ? (
@@ -139,7 +138,7 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
                       </button>
                     ) : null}
                   </div>
-                  <p className="mt-0.5 text-[11px] text-zinc-400">Total: {(item.price * item.quantity).toLocaleString('fr-FR')} MAD</p>
+                  <p className="mt-0.5 text-[11px] text-zinc-400" aria-label={`Total ligne ${item.name}: ${(item.price * item.quantity).toLocaleString('fr-FR')} Moroccan Dirhams`}>Total: {(item.price * item.quantity).toLocaleString('fr-FR')} MAD</p>
                   {item.stock <= 0 ? (
                     <p className="mt-0.5 text-[11px] font-semibold text-rose-400">⚠️ Rupture</p>
                   ) : null}
@@ -155,72 +154,68 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
         )}
       </div>
 
-      <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3 text-sm text-zinc-300">
-        <div className="flex items-center justify-between text-xs">
-          <span>Sous-total</span>
-          <span>{subtotal.toLocaleString('fr-FR')} MAD</span>
-        </div>
-        {discountAmount > 0 ? (
-          <div className="mt-2 flex items-center justify-between text-xs text-emerald-400">
-            <span>Remise ({formattedDiscountLabel})</span>
-            <span>-{discountAmount.toLocaleString('fr-FR')} MAD</span>
+      {cartItems.length > 0 ? (
+        <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3 text-sm text-zinc-300">
+          <div className="flex items-center justify-between text-xs">
+            <span>Sous-total</span>
+            <span aria-label={`Sous-total ${subtotal.toLocaleString('fr-FR')} Moroccan Dirhams`}>{subtotal.toLocaleString('fr-FR')} MAD</span>
           </div>
-        ) : null}
-        {manualDiscountTotal > 0 ? (
-          <div className="mt-2 flex items-center justify-between text-xs text-amber-400">
-            <span>Réduction produit</span>
-            <span>-{manualDiscountTotal.toLocaleString('fr-FR')} MAD</span>
+          {discountAmount > 0 ? (
+            <div className="mt-2 flex items-center justify-between text-xs text-emerald-400">
+              <span>Remise ({formattedDiscountLabel})</span>
+              <span aria-label={`Remise ${discountAmount.toLocaleString('fr-FR')} Moroccan Dirhams`}>-{discountAmount.toLocaleString('fr-FR')} MAD</span>
+            </div>
+          ) : null}
+          {manualDiscountTotal > 0 ? (
+            <div className="mt-2 flex items-center justify-between text-xs text-amber-400">
+              <span>Réduction produit</span>
+              <span>-{manualDiscountTotal.toLocaleString('fr-FR')} MAD</span>
+            </div>
+          ) : null}
+          <div className="mt-2 flex items-center justify-between text-xs">
+            <span>Montant HT</span>
+            <span>{htAfterRemise.toLocaleString('fr-FR')} MAD</span>
           </div>
-        ) : null}
-        <div className="mt-2 flex items-center justify-between text-xs">
-          <span>TVA (20%)</span>
-          <span>{taxAmount.toLocaleString('fr-FR')} MAD</span>
-        </div>
-        <div className="mt-3 border-t border-zinc-800 pt-3" />
-        <div className="flex items-center justify-between text-sm font-semibold text-white">
-          <span>Total TTC</span>
-          <span>{totalTTC.toLocaleString('fr-FR')} MAD</span>
-        </div>
-        <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950/70 p-2">
-          <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">Remise</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {presetDiscounts.map((value) => (
-              <button key={value} type="button" onClick={() => handlePresetDiscount(value)} className={`rounded-full px-2.5 py-1 text-xs font-medium ${discountType === 'percentage' && discountValue === value ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-300'}`}>
-                {value}%
+          <div className="mt-2 flex items-center justify-between text-xs">
+            <span>TVA (20%)</span>
+            <span>{taxAmount.toLocaleString('fr-FR')} MAD</span>
+          </div>
+          <div className="mt-3 border-t border-zinc-800 pt-3" />
+          <div className="flex items-center justify-between text-base font-semibold text-white">
+            <span>Total TTC</span>
+            <span aria-label={`Total: ${totalTTC.toLocaleString('fr-FR')} Moroccan Dirhams`}>{totalTTC.toLocaleString('fr-FR')} MAD</span>
+          </div>
+          <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950/70 p-2">
+            <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">Remise</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {presetDiscounts.map((value) => (
+                <button key={value} type="button" onClick={() => handlePresetDiscount(value)} className={`rounded-full px-2.5 py-1 text-xs font-medium ${discountType === 'percentage' && discountValue === value ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-300'}`}>
+                  {value}%
+                </button>
+              ))}
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                value={customDiscountInput}
+                onChange={(event) => setCustomDiscountInput(event.target.value)}
+                placeholder="5% ou 50"
+                className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-sm text-white outline-none"
+              />
+              <button type="button" onClick={handleApplyCustomDiscount} className="rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white">
+                Appliquer
               </button>
-            ))}
-          </div>
-          <div className="mt-2 flex items-center gap-2">
-            <input
-              value={customDiscountInput}
-              onChange={(event) => setCustomDiscountInput(event.target.value)}
-              placeholder="5% ou 50"
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-sm text-white outline-none"
-            />
-            <button type="button" onClick={handleApplyCustomDiscount} className="rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white">
-              Appliquer
-            </button>
-          </div>
-          <div className="mt-2 flex items-center justify-between text-[11px] text-zinc-400">
-            <span>{discountType === 'none' ? 'Aucune remise' : `Remise active: ${formattedDiscountLabel}`}</span>
-            {discountType === 'none' ? null : (
-              <button type="button" onClick={handleClearDiscount} className="text-red-400">
-                Effacer
-              </button>
-            )}
+            </div>
+            <div className="mt-2 flex items-center justify-between text-[11px] text-zinc-400">
+              <span>{discountType === 'none' ? 'Aucune remise' : `Remise active: ${formattedDiscountLabel}`}</span>
+              {discountType === 'none' ? null : (
+                <button type="button" onClick={handleClearDiscount} className="text-red-400">
+                  Effacer
+                </button>
+              )}
+            </div>
           </div>
         </div>
-        <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950/70 p-2">
-          <div className="flex items-center justify-between text-xs text-zinc-400">
-            <span>Montant net (HT)</span>
-            <span>{netAmount.toLocaleString('fr-FR')} MAD</span>
-          </div>
-          <div className="mt-2 flex items-center justify-between text-lg font-semibold text-white">
-            <span>Total</span>
-            <span>{grandTotal.toLocaleString('fr-FR')} MAD</span>
-          </div>
-        </div>
-      </div>
+      ) : null}
 
       <div className="mt-3 flex flex-col gap-2">
         <button
@@ -237,7 +232,7 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
           </svg>
           <span>🖨️ طباعة الفاتورة / Imprimer la facture</span>
         </button>
-        <button type="button" className="rounded-2xl bg-red-600 px-3 py-2.5 text-sm font-semibold text-white">
+        <button type="button" className="rounded-2xl bg-red-600 px-3 py-2.5 text-sm font-semibold text-white" aria-label={`Commander pour ${totalTTC.toLocaleString('fr-FR')} Moroccan Dirhams`}>
           Commander • {totalTTC.toLocaleString('fr-FR')} MAD
         </button>
       </div>

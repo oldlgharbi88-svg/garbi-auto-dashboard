@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { company } from '../config/company';
+import { useCartTotals } from '../hooks/useCartTotals';
 
 interface InvoiceItem {
   id: number;
@@ -110,28 +111,38 @@ export default function InvoicePrint({
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<number>(sampleInvoices[0].id);
 
   const storeName = company.name;
+  const fallbackInvoice = sampleInvoices.find((invoice) => invoice.id === selectedInvoiceId) ?? sampleInvoices[0];
+  const invoiceItems = (items ?? fallbackInvoice.items).map((item) => ({ price: item.unitPrice, quantity: item.quantity }));
+  const invoiceDiscountValue = typeof discount === 'number' ? discount : 0;
+  const { subtotal: invoiceSubtotal, remiseAmount: invoiceDiscount, totalTTC: invoiceTotalTTC } = useCartTotals({
+    items: invoiceItems,
+    discountType: invoiceDiscountValue > 0 ? 'fixed' : 'none',
+    discountValue: invoiceDiscountValue,
+    taxRate: 0.2,
+    taxEnabled: false,
+    currency: 'MAD'
+  });
   const storeAddress = `${company.address}\n${company.addressAr}`;
   const storePhone1 = company.phone1;
   const storePhone2 = company.phone2;
   const storeRegistration = '';
 
   const selectedInvoice = useMemo(() => {
-    const fallback = sampleInvoices.find((invoice) => invoice.id === selectedInvoiceId) ?? sampleInvoices[0];
     return {
-      invoiceNumber: invoiceNumber ?? fallback.invoiceNumber,
-      customer: customer ?? fallback.customer,
-      items: items ?? fallback.items,
-      totals: totals ?? fallback.totals,
-      paymentTerms: paymentTerms ?? fallback.paymentTerms,
-      poNumber: poNumber ?? fallback.poNumber,
-      date: invoiceDate ?? fallback.date,
+      invoiceNumber: invoiceNumber ?? fallbackInvoice.invoiceNumber,
+      customer: customer ?? fallbackInvoice.customer,
+      items: items ?? fallbackInvoice.items,
+      totals: totals ?? { subtotal: invoiceSubtotal, discount: invoiceDiscount, total: invoiceTotalTTC },
+      paymentTerms: paymentTerms ?? fallbackInvoice.paymentTerms,
+      poNumber: poNumber ?? fallbackInvoice.poNumber,
+      date: invoiceDate ?? fallbackInvoice.date,
       storeName,
       storeAddress,
       storePhone1,
       storePhone2,
       storeRegistration
     };
-  }, [customer, discount, invoiceDate, invoiceNumber, items, paymentTerms, poNumber, selectedInvoiceId, storeAddress, storeName, storePhone1, storePhone2, storeRegistration, totals]);
+  }, [customer, fallbackInvoice.customer, fallbackInvoice.date, fallbackInvoice.invoiceNumber, fallbackInvoice.paymentTerms, fallbackInvoice.poNumber, invoiceDate, invoiceDiscount, invoiceSubtotal, invoiceTotalTTC, invoiceNumber, items, paymentTerms, poNumber, selectedInvoiceId, storeAddress, storeName, storePhone1, storePhone2, storeRegistration, totals]);
 
   const printInvoice = () => {
     window.print();
