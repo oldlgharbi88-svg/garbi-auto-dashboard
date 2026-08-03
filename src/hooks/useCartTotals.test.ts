@@ -42,4 +42,22 @@ describe('useCartTotals', () => {
     expect(totals.tvaAmount).toBe(0);
     expect(totals.totalTTC).toBe(480);
   });
+
+  it('applies a fixed discount correctly', () => {
+    const totals = renderTotals([{ price: 300, quantity: 2 }], 'fixed', 100);
+
+    expect(totals.remiseAmount).toBe(100);
+    expect(totals.htAfterRemise).toBe(500);
+    expect(totals.tvaAmount).toBe(100);
+    expect(totals.totalTTC).toBe(600);
+  });
+
+  it('caps a percentage discount at 100%', () => {
+    const totals = renderTotals([{ price: 300, quantity: 2 }], 'percentage', 150);
+
+    expect(totals.remiseAmount).toBe(600);
+    expect(totals.htAfterRemise).toBe(0);
+    expect(totals.tvaAmount).toBe(0);
+    expect(totals.totalTTC).toBe(0);
+  });
 });

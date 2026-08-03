@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import EditCartItemPriceModal from './EditCartItemPriceModal';
 import { useCart, type CartItem } from '../context/CartContext';
+import { parseCustomDiscountInput } from '../utils/discountInput';
 
 const presetDiscounts = [5, 10, 15, 20];
 
@@ -12,9 +13,11 @@ interface CartDrawerProps {
 }
 
 export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices = false }: CartDrawerProps) {
-  const { cartItems, cartCount, subtotal, discountType, discountValue, discountAmount, taxAmount, totalTTC, removeFromCart, updateQuantity, setDiscount, clearDiscount } = useCart();
+  const { cartItems, cartCount, subtotal, discountType, discountValue, discountAmount, taxAmount, totalTTC, removeFromCart, updateQuantity, setDiscount, clearDiscount, showToast } = useCart();
   const [editingItem, setEditingItem] = useState<CartItem | null>(null);
   const [customDiscountInput, setCustomDiscountInput] = useState('');
+  const [discountError, setDiscountError] = useState('');
+  const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
 
   const manualDiscountTotal = useMemo(
     () =>
@@ -28,30 +31,67 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
     [cartItems]
   );
 
+  const isDiscountInputValid = useMemo(() => {
+    const parsed = parseCustomDiscountInput(customDiscountInput);
+    return parsed.kind !== 'invalid';
+  }, [customDiscountInput]);
+
   const handlePresetDiscount = (value: number) => {
     setDiscount('percentage', value);
     setCustomDiscountInput('');
+    setDiscountError('');
+    showToast(`Remise appliquée: ${value}%`);
   };
 
   const handleApplyCustomDiscount = () => {
-    const parsed = Number(customDiscountInput.replace(/,/g, '.'));
-    if (!Number.isFinite(parsed) || parsed <= 0) {
+    const parsed = parseCustomDiscountInput(customDiscountInput);
+
+    if (parsed.kind === 'invalid') {
+      setDiscountError(parsed.error);
       return;
     }
 
-    const isPercentage = customDiscountInput.includes('%');
-    const normalizedValue = Number(customDiscountInput.replace('%', '').replace(/,/g, '.'));
-
-    if (isPercentage) {
-      setDiscount('percentage', normalizedValue);
-    } else {
-      setDiscount('fixed', normalizedValue);
+    const { kind, value } = parsed;
+    if (kind === 'percentage') {
+      const cappedValue = Math.min(Math.max(value, 0), 100);
+      if (cappedValue === 0) {
+        clearDiscount();
+        setDiscountError('');
+        setCustomDiscountInput('');
+        showToast('Remise supprimée');
+        return;
+      }
+      setDiscount('percentage', cappedValue);
+      setDiscountError('');
+      setCustomDiscountInput('');
+      setIsApplyingDiscount(true);
+      window.setTimeout(() => setIsApplyingDiscount(false), 180);
+      showToast(`Remise appliquée: ${cappedValue}%`);
+      return;
     }
+
+    const cappedValue = Math.min(Math.max(value, 0), subtotal);
+    if (cappedValue === 0) {
+      clearDiscount();
+      setDiscountError('');
+      setCustomDiscountInput('');
+      showToast('Remise supprimée');
+      return;
+    }
+
+    setDiscount('fixed', cappedValue);
+    setDiscountError('');
+    setCustomDiscountInput('');
+    setIsApplyingDiscount(true);
+    window.setTimeout(() => setIsApplyingDiscount(false), 180);
+    showToast(`Remise appliquée: ${cappedValue.toFixed(0)} MAD`);
   };
 
   const handleClearDiscount = () => {
     clearDiscount();
     setCustomDiscountInput('');
+    setDiscountError('');
+    showToast('Remise supprimée');
   };
 
   const formattedDiscountLabel = discountType === 'percentage' ? `${discountValue}%` : discountType === 'fixed' ? `${discountValue.toFixed(0)} MAD` : 'Aucune';
@@ -209,14 +249,25 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
             <div className="mt-2 flex flex-col gap-2 sm:flex-row">
               <input
                 value={customDiscountInput}
-                onChange={(event) => setCustomDiscountInput(event.target.value)}
-                placeholder="5% ou 50"
+                onChange={(event) => {
+                  setCustomDiscountInput(event.target.value);
+                  if (discountError) {
+                    setDiscountError('');
+                  }
+                }}
+                placeholder="5% / 5,5% / 50 MAD"
                 className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-sm text-white outline-none"
               />
-              <button type="button" onClick={handleApplyCustomDiscount} className="w-full rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-500 sm:w-auto">
-                Appliquer
+              <button
+                type="button"
+                onClick={handleApplyCustomDiscount}
+                disabled={!isDiscountInputValid || isApplyingDiscount}
+                className="w-full rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400 sm:w-auto"
+              >
+                {isApplyingDiscount ? 'Application…' : 'Appliquer'}
               </button>
             </div>
+            {discountError ? <p className="mt-2 text-[11px] text-rose-400">{discountError}</p> : null}
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-400">
               <span>{discountType === 'none' ? 'Aucune remise' : `Remise active: ${formattedDiscountLabel}`}</span>
               {discountType === 'none' ? null : (
