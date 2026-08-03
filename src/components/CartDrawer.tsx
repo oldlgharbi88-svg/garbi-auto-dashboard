@@ -74,7 +74,7 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
       </div>
 
       <div className="mt-4 flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col gap-3 overflow-y-auto overflow-x-hidden pr-1 sm:pr-2">
+        <div className="flex h-full max-h-[calc(100vh-240px)] flex-col gap-3 overflow-y-auto overflow-x-hidden pr-1 sm:max-h-[calc(100vh-280px)] sm:pr-2">
         {cartItems.length === 0 ? (
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 text-sm text-zinc-400">
             Le panier est vide pour le moment.
@@ -243,7 +243,7 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
           </svg>
           <span>🖨️ طباعة الفاتورة / Imprimer la facture</span>
         </button>
-        <button type="button" className="w-full rounded-2xl bg-red-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-red-500 active:scale-[0.99]" aria-label={`Commander pour ${totalTTC.toLocaleString('fr-FR')} Moroccan Dirhams`}>
+        <button type="button" disabled={cartItems.length === 0} className="w-full rounded-2xl bg-red-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-red-500 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400" aria-label={`Commander pour ${totalTTC.toLocaleString('fr-FR')} Moroccan Dirhams`}>
           Commander • {totalTTC.toLocaleString('fr-FR')} MAD
         </button>
       </div>
