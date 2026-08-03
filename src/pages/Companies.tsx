@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import AddPaymentModal from '../components/AddPaymentModal';
 import CompanyDetailModal from '../components/CompanyDetailModal';
 import CompanyFormModal from '../components/CompanyFormModal';
+import SupplierFormModal from '../components/SupplierFormModal';
 
 interface CompanyRecord {
   id: string;
@@ -22,6 +23,21 @@ interface CompanyRecord {
     createdAt: string;
   }>;
 }
+
+interface SupplierRecord {
+  id: string;
+  name: string;
+  contactPerson: string;
+  phone: string;
+  email: string;
+  address: string;
+  city: string;
+  balance: number;
+  note: string;
+  lastOrderDate: string;
+}
+
+type CompanyTab = 'clients' | 'suppliers';
 
 const initialCompanies: CompanyRecord[] = [
   {
@@ -53,10 +69,40 @@ const initialCompanies: CompanyRecord[] = [
   }
 ];
 
+const initialSuppliers: SupplierRecord[] = [
+  {
+    id: 'sup-1',
+    name: 'Auto Parts Maroc',
+    contactPerson: 'Nabil Hajjaj',
+    phone: '+212 522 100 201',
+    email: 'sales@autoparts.ma',
+    address: 'Tanger, Zone industrielle',
+    city: 'Tanger',
+    balance: 9800,
+    note: 'Livraison prioritaire',
+    lastOrderDate: '2026-07-27'
+  },
+  {
+    id: 'sup-2',
+    name: 'Sahara Batteries',
+    contactPerson: 'Laila Boutaleb',
+    phone: '+212 524 230 987',
+    email: 'contact@saharabatteries.ma',
+    address: 'Fès, Rue des ateliers',
+    city: 'Fès',
+    balance: 3200,
+    note: 'Acompte demandé',
+    lastOrderDate: '2026-07-20'
+  }
+];
+
 export default function CompaniesPage() {
   const [companies, setCompanies] = useState(initialCompanies);
+  const [suppliers, setSuppliers] = useState(initialSuppliers);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState<CompanyTab>('clients');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<CompanyRecord | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -70,13 +116,23 @@ export default function CompaniesPage() {
     return companies.filter((company) => `${company.name} ${company.contactPerson} ${company.ice}`.toLowerCase().includes(query));
   }, [companies, searchTerm]);
 
+  const filteredSuppliers = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) {
+      return suppliers;
+    }
+
+    return suppliers.filter((supplier) => `${supplier.name} ${supplier.contactPerson} ${supplier.city}`.toLowerCase().includes(query));
+  }, [searchTerm, suppliers]);
+
   const totals = useMemo(() => {
     const totalInvoiced = companies.reduce((sum, company) => sum + company.invoices.reduce((companyTotal, invoice) => companyTotal + invoice.totalAmount, 0), 0);
     const totalPaid = companies.reduce((sum, company) => sum + company.invoices.reduce((companyTotal, invoice) => companyTotal + invoice.paidAmount, 0), 0);
     const totalOutstanding = totalInvoiced - totalPaid;
+    const supplierOutstanding = suppliers.reduce((sum, supplier) => sum + supplier.balance, 0);
 
-    return { totalInvoiced, totalPaid, totalOutstanding };
-  }, [companies]);
+    return { totalInvoiced, totalPaid, totalOutstanding, supplierOutstanding };
+  }, [companies, suppliers]);
 
   return (
     <div className="space-y-6">
@@ -85,13 +141,28 @@ export default function CompaniesPage() {
           <div>
             <p className="text-sm uppercase tracking-[0.3em] text-zinc-400">Societes / Companies</p>
             <h1 className="mt-2 text-3xl font-semibold text-white">Societes</h1>
-            <p className="mt-2 text-sm text-zinc-400">Suivi des societes B2B, factures et creances.</p>
+            <p className="mt-2 text-sm text-zinc-400">Suivi des societes B2B, fournisseurs et creances.</p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <button type="button" onClick={() => setShowAddModal(true)} className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500">
-              Ajouter une societe
-            </button>
+            {activeTab === 'clients' ? (
+              <button type="button" onClick={() => setShowAddModal(true)} className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500">
+                Ajouter une societe
+              </button>
+            ) : (
+              <button type="button" onClick={() => setShowSupplierModal(true)} className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500">
+                Ajouter un fournisseur
+              </button>
+            )}
           </div>
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-2">
+          <button type="button" onClick={() => setActiveTab('clients')} className={`rounded-full px-4 py-2 text-sm font-semibold ${activeTab === 'clients' ? 'bg-red-600 text-white' : 'border border-zinc-700 text-zinc-300'}`}>
+            Sociétés clientes
+          </button>
+          <button type="button" onClick={() => setActiveTab('suppliers')} className={`rounded-full px-4 py-2 text-sm font-semibold ${activeTab === 'suppliers' ? 'bg-red-600 text-white' : 'border border-zinc-700 text-zinc-300'}`}>
+            Fournisseurs
+          </button>
         </div>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_240px]">
@@ -101,65 +172,99 @@ export default function CompaniesPage() {
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               className="w-full bg-transparent outline-none"
-              placeholder="Rechercher une societe…"
+              placeholder={activeTab === 'clients' ? 'Rechercher une societe…' : 'Rechercher un fournisseur…'}
             />
           </label>
           <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-            <p className="text-[11px] uppercase tracking-[0.3em]">Total des creances</p>
-            <p className="mt-1 text-lg font-semibold">{totals.totalOutstanding.toLocaleString('fr-FR')} MAD</p>
+            <p className="text-[11px] uppercase tracking-[0.3em]">{activeTab === 'clients' ? 'Total des creances' : 'Dettes fournisseurs'}</p>
+            <p className="mt-1 text-lg font-semibold">{(activeTab === 'clients' ? totals.totalOutstanding : totals.supplierOutstanding).toLocaleString('fr-FR')} MAD</p>
           </div>
         </div>
 
-        <div className="mt-6 overflow-hidden rounded-2xl border border-zinc-800">
-          <table className="min-w-full divide-y divide-zinc-800">
-            <thead className="bg-zinc-950/70">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">Societe</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">Contact</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">Téléphone</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">ICE</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">Factures</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">Montant</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">Payé</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">Restant</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-800 bg-zinc-900/60">
-              {filteredCompanies.map((company) => {
-                const totalInvoiced = company.invoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0);
-                const totalPaid = company.invoices.reduce((sum, invoice) => sum + invoice.paidAmount, 0);
-                const outstanding = totalInvoiced - totalPaid;
-                const lastInvoice = company.invoices[company.invoices.length - 1];
+        {activeTab === 'clients' ? (
+          <div className="mt-6 overflow-hidden rounded-2xl border border-zinc-800">
+            <table className="min-w-full divide-y divide-zinc-800">
+              <thead className="bg-zinc-950/70">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">Societe</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">Contact</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">Téléphone</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">ICE</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">Factures</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">Montant</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">Payé</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">Restant</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800 bg-zinc-900/60">
+                {filteredCompanies.map((company) => {
+                  const totalInvoiced = company.invoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0);
+                  const totalPaid = company.invoices.reduce((sum, invoice) => sum + invoice.paidAmount, 0);
+                  const outstanding = totalInvoiced - totalPaid;
+                  const lastInvoice = company.invoices[company.invoices.length - 1];
 
-                return (
-                  <tr key={company.id} className="text-sm text-zinc-200">
+                  return (
+                    <tr key={company.id} className="text-sm text-zinc-200">
+                      <td className="px-4 py-3">
+                        <div>
+                          <p className="font-semibold text-white">{company.name}</p>
+                          <p className="text-xs text-zinc-400">{company.address}</p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">{company.contactPerson}</td>
+                      <td className="px-4 py-3">{company.phone}</td>
+                      <td className="px-4 py-3">{company.ice}</td>
+                      <td className="px-4 py-3">{company.invoices.length}</td>
+                      <td className="px-4 py-3">{totalInvoiced.toLocaleString('fr-FR')} MAD</td>
+                      <td className="px-4 py-3">{totalPaid.toLocaleString('fr-FR')} MAD</td>
+                      <td className={`px-4 py-3 font-semibold ${outstanding > 0 ? 'text-amber-300' : 'text-emerald-300'}`}>{outstanding.toLocaleString('fr-FR')} MAD</td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-2">
+                          <button type="button" onClick={() => { setSelectedCompany(company); setShowDetailModal(true); }} className="rounded-full border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300">Voir</button>
+                          <button type="button" onClick={() => { setSelectedCompany(company); setShowPaymentModal(true); }} className="rounded-full border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300">Paiement</button>
+                        </div>
+                        {lastInvoice ? <p className="mt-2 text-[11px] text-zinc-500">Dernier: {lastInvoice.createdAt}</p> : null}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="mt-6 overflow-hidden rounded-2xl border border-zinc-800">
+            <table className="min-w-full divide-y divide-zinc-800">
+              <thead className="bg-zinc-950/70">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">Fournisseur</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">Contact</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">Téléphone</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">Ville</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">Solde</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-zinc-400">Dernière commande</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800 bg-zinc-900/60">
+                {filteredSuppliers.map((supplier) => (
+                  <tr key={supplier.id} className="text-sm text-zinc-200">
                     <td className="px-4 py-3">
                       <div>
-                        <p className="font-semibold text-white">{company.name}</p>
-                        <p className="text-xs text-zinc-400">{company.address}</p>
+                        <p className="font-semibold text-white">{supplier.name}</p>
+                        <p className="text-xs text-zinc-400">{supplier.address}</p>
                       </div>
                     </td>
-                    <td className="px-4 py-3">{company.contactPerson}</td>
-                    <td className="px-4 py-3">{company.phone}</td>
-                    <td className="px-4 py-3">{company.ice}</td>
-                    <td className="px-4 py-3">{company.invoices.length}</td>
-                    <td className="px-4 py-3">{totalInvoiced.toLocaleString('fr-FR')} MAD</td>
-                    <td className="px-4 py-3">{totalPaid.toLocaleString('fr-FR')} MAD</td>
-                    <td className={`px-4 py-3 font-semibold ${outstanding > 0 ? 'text-amber-300' : 'text-emerald-300'}`}>{outstanding.toLocaleString('fr-FR')} MAD</td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-2">
-                        <button type="button" onClick={() => { setSelectedCompany(company); setShowDetailModal(true); }} className="rounded-full border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300">Voir</button>
-                        <button type="button" onClick={() => { setSelectedCompany(company); setShowPaymentModal(true); }} className="rounded-full border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300">Paiement</button>
-                      </div>
-                      {lastInvoice ? <p className="mt-2 text-[11px] text-zinc-500">Dernier: {lastInvoice.createdAt}</p> : null}
-                    </td>
+                    <td className="px-4 py-3">{supplier.contactPerson}</td>
+                    <td className="px-4 py-3">{supplier.phone}</td>
+                    <td className="px-4 py-3">{supplier.city}</td>
+                    <td className={`px-4 py-3 font-semibold ${supplier.balance > 0 ? 'text-amber-300' : 'text-emerald-300'}`}>{supplier.balance.toLocaleString('fr-FR')} MAD</td>
+                    <td className="px-4 py-3">{supplier.lastOrderDate}</td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <CompanyFormModal
@@ -174,6 +279,14 @@ export default function CompaniesPage() {
             ...current
           ]);
           setShowAddModal(false);
+        }}
+      />
+      <SupplierFormModal
+        open={showSupplierModal}
+        onClose={() => setShowSupplierModal(false)}
+        onSave={(supplier) => {
+          setSuppliers((current) => [{ ...supplier, id: `supplier-${Date.now()}` }, ...current]);
+          setShowSupplierModal(false);
         }}
       />
       <CompanyDetailModal

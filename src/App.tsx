@@ -13,12 +13,13 @@ import PublicCatalog from './pages/PublicCatalog';
 import PrintInvoice from './pages/PrintInvoice';
 import PrintHistoricalInvoice from './pages/PrintHistoricalInvoice';
 import InvoiceHistory from './components/InvoiceHistory';
+import CustomersPage from './pages/Customers';
 import { useCart } from './context/CartContext';
 
-type ActiveView = 'pos' | 'inventory' | 'invoices' | 'invoice-history' | 'clients' | 'companies' | 'settings' | 'reports';
+type ActiveView = 'pos' | 'inventory' | 'invoices' | 'invoice-history' | 'clients' | 'customers' | 'companies' | 'settings' | 'reports';
 type Role = 'none' | 'manager' | 'employee';
 
-const employeeAccessibleViews: ActiveView[] = ['invoices', 'invoice-history', 'clients', 'companies'];
+const employeeAccessibleViews: ActiveView[] = ['invoices', 'invoice-history', 'clients', 'customers', 'companies'];
 
 const canAccess = (view: ActiveView, role: Role): boolean => {
   if (view === 'pos') {
@@ -153,6 +154,7 @@ export default function App() {
               {activeView === 'invoices' ? <InvoicePrint /> : null}
               {activeView === 'invoice-history' ? <InvoiceHistory /> : null}
               {activeView === 'clients' ? <ClientDirectory onNavigateToPos={() => setActiveView('pos')} /> : null}
+              {activeView === 'customers' ? <CustomersPage /> : null}
               {activeView === 'companies' ? <CompaniesPage /> : null}
               {activeView === 'settings' ? <Settings /> : null}
               {activeView === 'reports' ? <Reports /> : null}
