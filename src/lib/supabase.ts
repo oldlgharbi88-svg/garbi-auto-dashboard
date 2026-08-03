@@ -9,6 +9,29 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+export type CompanyRow = {
+  id: string;
+  name: string;
+  contact_person?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  ice?: string | null;
+  rc?: string | null;
+  created_at?: string | null;
+};
+
+export type CompanyInvoiceRow = {
+  id: string;
+  company_id?: string | null;
+  invoice_number: string;
+  total_amount: number;
+  paid_amount?: number | null;
+  remaining_amount?: number | null;
+  status?: string | null;
+  created_at?: string | null;
+};
+
 export async function getCurrentSupabaseUser() {
   try {
     const { data: { user }, error } = await supabase.auth.getUser();

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar';
 import POS from './components/POS';
-import Customers from './components/Customers';
+import CompaniesPage from './pages/Companies';
 import Settings from './components/Settings';
 import ClientDirectory from './components/ClientDirectory';
 import Inventory from './components/Inventory';
@@ -15,10 +15,10 @@ import PrintHistoricalInvoice from './pages/PrintHistoricalInvoice';
 import InvoiceHistory from './components/InvoiceHistory';
 import { useCart } from './context/CartContext';
 
-type ActiveView = 'pos' | 'inventory' | 'invoices' | 'invoice-history' | 'clients' | 'customers' | 'settings' | 'reports';
+type ActiveView = 'pos' | 'inventory' | 'invoices' | 'invoice-history' | 'clients' | 'companies' | 'settings' | 'reports';
 type Role = 'none' | 'manager' | 'employee';
 
-const employeeAccessibleViews: ActiveView[] = ['invoices', 'invoice-history', 'clients'];
+const employeeAccessibleViews: ActiveView[] = ['invoices', 'invoice-history', 'clients', 'companies'];
 
 const canAccess = (view: ActiveView, role: Role): boolean => {
   if (view === 'pos') {
@@ -153,7 +153,7 @@ export default function App() {
               {activeView === 'invoices' ? <InvoicePrint /> : null}
               {activeView === 'invoice-history' ? <InvoiceHistory /> : null}
               {activeView === 'clients' ? <ClientDirectory onNavigateToPos={() => setActiveView('pos')} /> : null}
-              {activeView === 'customers' ? <Customers /> : null}
+              {activeView === 'companies' ? <CompaniesPage /> : null}
               {activeView === 'settings' ? <Settings /> : null}
               {activeView === 'reports' ? <Reports /> : null}
             </main>

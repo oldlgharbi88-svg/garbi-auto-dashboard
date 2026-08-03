@@ -4,6 +4,7 @@ import { useCartTotals, type DiscountType as CartTotalsDiscountType } from '../h
 
 const CART_STORAGE_KEY = 'garbi_cart_items';
 const DISCOUNT_STORAGE_KEY = 'garbi_cart_discount';
+const DISCOUNT_SECTION_STORAGE_KEY = 'garbi_discount_section_open';
 const TAX_RATE = 0.2;
 
 type DiscountType = CartTotalsDiscountType;
@@ -42,6 +43,7 @@ interface CartContextValue {
   taxRate: number;
   taxAmount: number;
   totalTTC: number;
+  isDiscountSectionOpen: boolean;
   toast: string | null;
   addToCart: (item: CartItemInput) => void;
   removeFromCart: (id: string) => void;
@@ -52,6 +54,7 @@ interface CartContextValue {
   clearCart: () => void;
   clearToast: () => void;
   showToast: (message: string) => void;
+  setDiscountSectionOpen: (open: boolean) => void;
 }
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
@@ -61,6 +64,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<string | null>(null);
   const [discountType, setDiscountType] = useState<DiscountType>('none');
   const [discountValue, setDiscountValue] = useState(0);
+  const [isDiscountSectionOpen, setIsDiscountSectionOpen] = useState(true);
   const timeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -92,6 +96,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
       } catch {
         window.localStorage.removeItem(DISCOUNT_STORAGE_KEY);
+      }
+
+      try {
+        const savedSectionState = window.localStorage.getItem(DISCOUNT_SECTION_STORAGE_KEY);
+        if (savedSectionState !== null) {
+          setIsDiscountSectionOpen(JSON.parse(savedSectionState) as boolean);
+        }
+      } catch {
+        window.localStorage.removeItem(DISCOUNT_SECTION_STORAGE_KEY);
       }
 
       try {
@@ -161,6 +174,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     window.localStorage.setItem(DISCOUNT_STORAGE_KEY, JSON.stringify({ type: discountType, value: discountValue }));
   }, [discountType, discountValue]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.localStorage.setItem(DISCOUNT_SECTION_STORAGE_KEY, JSON.stringify(isDiscountSectionOpen));
+  }, [isDiscountSectionOpen]);
 
   const showToast = (message: string) => {
     if (timeoutRef.current !== null) {
@@ -282,6 +303,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setToast(null);
   };
 
+  const setDiscountSectionOpen = (open: boolean) => {
+    setIsDiscountSectionOpen(open);
+  };
+
   const cartCount = useMemo(() => cartItems.reduce((total, item) => total + item.quantity, 0), [cartItems]);
   const { subtotal, remiseAmount, htAfterRemise, tvaAmount, totalTTC } = useCartTotals({
     items: cartItems.map((item) => ({ price: item.price, quantity: item.quantity })),
@@ -309,6 +334,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         taxRate: TAX_RATE,
         taxAmount,
         totalTTC,
+        isDiscountSectionOpen,
         toast,
         addToCart,
         removeFromCart,
@@ -318,7 +344,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         clearDiscount,
         clearCart,
         clearToast,
-        showToast
+        showToast,
+        setDiscountSectionOpen
       }}
     >
       {children}

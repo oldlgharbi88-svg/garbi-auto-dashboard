@@ -13,7 +13,7 @@ interface CartDrawerProps {
 }
 
 export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices = false }: CartDrawerProps) {
-  const { cartItems, cartCount, subtotal, discountType, discountValue, discountAmount, taxAmount, totalTTC, removeFromCart, updateQuantity, setDiscount, clearDiscount, showToast } = useCart();
+  const { cartItems, cartCount, subtotal, discountType, discountValue, discountAmount, taxAmount, totalTTC, isDiscountSectionOpen, removeFromCart, updateQuantity, setDiscount, clearDiscount, showToast, setDiscountSectionOpen } = useCart();
   const [editingItem, setEditingItem] = useState<CartItem | null>(null);
   const [customDiscountInput, setCustomDiscountInput] = useState('');
   const [discountError, setDiscountError] = useState('');
@@ -40,6 +40,7 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
     setDiscount('percentage', value);
     setCustomDiscountInput('');
     setDiscountError('');
+    setDiscountSectionOpen(false);
     showToast(`Remise appliquée: ${value}%`);
   };
 
@@ -64,9 +65,10 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
       setDiscount('percentage', cappedValue);
       setDiscountError('');
       setCustomDiscountInput('');
+      setDiscountSectionOpen(false);
       setIsApplyingDiscount(true);
       window.setTimeout(() => setIsApplyingDiscount(false), 180);
-      showToast(`Remise appliquée: ${cappedValue}%`);
+      showToast('Remise appliquée avec succès');
       return;
     }
 
@@ -82,15 +84,17 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
     setDiscount('fixed', cappedValue);
     setDiscountError('');
     setCustomDiscountInput('');
+    setDiscountSectionOpen(false);
     setIsApplyingDiscount(true);
     window.setTimeout(() => setIsApplyingDiscount(false), 180);
-    showToast(`Remise appliquée: ${cappedValue.toFixed(0)} MAD`);
+    showToast('Remise appliquée avec succès');
   };
 
   const handleClearDiscount = () => {
     clearDiscount();
     setCustomDiscountInput('');
     setDiscountError('');
+    setDiscountSectionOpen(true);
     showToast('Remise supprimée');
   };
 
@@ -239,42 +243,49 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
           </div>
           <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950/70 p-2">
             <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">Remise</p>
-            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {presetDiscounts.map((value) => (
-                <button key={value} type="button" onClick={() => handlePresetDiscount(value)} className={`min-h-10 rounded-full px-2.5 py-2 text-sm font-medium transition ${discountType === 'percentage' && discountValue === value ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}>
-                  {value}%
+            {discountType !== 'none' ? (
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[11px] text-emerald-300">
+                <span>Remise active: {formattedDiscountLabel}</span>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setDiscountSectionOpen(true)} className="font-medium text-emerald-200 transition hover:text-white">
+                    Modifier
+                  </button>
+                  <button type="button" onClick={handleClearDiscount} className="font-medium text-red-400 transition hover:text-red-300">
+                    Effacer
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            <div className={`overflow-hidden transition-all duration-300 ${isDiscountSectionOpen ? 'mt-2 max-h-64 opacity-100' : 'mt-0 max-h-0 opacity-0'}`}>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {presetDiscounts.map((value) => (
+                  <button key={value} type="button" onClick={() => handlePresetDiscount(value)} className={`min-h-10 rounded-full px-2.5 py-2 text-sm font-medium transition ${discountType === 'percentage' && discountValue === value ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}>
+                    {value}%
+                  </button>
+                ))}
+              </div>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                <input
+                  value={customDiscountInput}
+                  onChange={(event) => {
+                    setCustomDiscountInput(event.target.value);
+                    if (discountError) {
+                      setDiscountError('');
+                    }
+                  }}
+                  placeholder="5% / 5,5% / 50 MAD"
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-sm text-white outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleApplyCustomDiscount}
+                  disabled={!isDiscountInputValid || isApplyingDiscount}
+                  className="w-full rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400 sm:w-auto"
+                >
+                  {isApplyingDiscount ? 'Application…' : 'Appliquer'}
                 </button>
-              ))}
-            </div>
-            <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-              <input
-                value={customDiscountInput}
-                onChange={(event) => {
-                  setCustomDiscountInput(event.target.value);
-                  if (discountError) {
-                    setDiscountError('');
-                  }
-                }}
-                placeholder="5% / 5,5% / 50 MAD"
-                className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-sm text-white outline-none"
-              />
-              <button
-                type="button"
-                onClick={handleApplyCustomDiscount}
-                disabled={!isDiscountInputValid || isApplyingDiscount}
-                className="w-full rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400 sm:w-auto"
-              >
-                {isApplyingDiscount ? 'Application…' : 'Appliquer'}
-              </button>
-            </div>
-            {discountError ? <p className="mt-2 text-[11px] text-rose-400">{discountError}</p> : null}
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-400">
-              <span>{discountType === 'none' ? 'Aucune remise' : `Remise active: ${formattedDiscountLabel}`}</span>
-              {discountType === 'none' ? null : (
-                <button type="button" onClick={handleClearDiscount} className="text-red-400 transition hover:text-red-300">
-                  Effacer
-                </button>
-              )}
+              </div>
+              {discountError ? <p className="mt-2 text-[11px] text-rose-400">{discountError}</p> : null}
             </div>
           </div>
         </div>
