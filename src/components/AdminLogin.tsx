@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { company } from '../config/company';
 
-type ActiveView = 'pos' | 'inventory' | 'invoices' | 'invoice-history' | 'clients' | 'customers' | 'companies' | 'settings' | 'reports';
+type ActiveView = 'pos' | 'inventory' | 'supplier-invoices' | 'invoices' | 'invoice-history' | 'clients' | 'customers' | 'companies' | 'settings' | 'reports';
 type Role = 'manager' | 'employee';
 
 interface AccessModalProps {
@@ -14,6 +14,7 @@ interface AccessModalProps {
 const viewLabels: Record<ActiveView, string> = {
   pos: 'POS',
   inventory: 'Inventory',
+  'supplier-invoices': 'Supplier Invoices',
   invoices: 'Invoices',
   'invoice-history': 'Invoice History',
   clients: 'Clients',

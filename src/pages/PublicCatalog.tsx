@@ -3,6 +3,9 @@ import { supabase } from '../lib/supabase';
 import { useCart } from '../context/CartContext';
 import { company } from '../config/company';
 import PasswordGate from '../components/PasswordGate';
+import AddToCartPanel, { type AddToCartPanelItem } from '../components/AddToCartPanel';
+import CartDrawer from '../components/CartDrawer';
+import ProductCard, { type CatalogCardItem } from '../components/ProductCard';
 
 interface CatalogItem {
   id: number | string;
@@ -94,9 +97,14 @@ const inferCategory = (item: CatalogItem): string => {
 
 interface PublicCatalogProps {
   canEditPrices?: boolean;
+  isCartOpen?: boolean;
+  onToggleCart?: () => void;
+  onOpenCart?: () => void;
+  onCloseCart?: () => void;
+  onOpenInvoice?: () => void;
 }
 
-export default function PublicCatalog({ canEditPrices = false }: PublicCatalogProps) {
+export default function PublicCatalog({ canEditPrices = false, isCartOpen = false, onOpenCart, onCloseCart, onOpenInvoice }: PublicCatalogProps) {
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -111,6 +119,14 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
   const [isSavingPrice, setIsSavingPrice] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const { addToCart } = useCart();
+
+  const scrollToProduct = (id: string) => {
+    const element = document.getElementById(`catalog-item-${id}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    onCloseCart?.();
+  };
 
   useEffect(() => {
     const loadCatalog = async () => {
@@ -375,109 +391,30 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
           </div>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {filteredItems.map((item) => {
-              const inStock = item.quantity > 0;
-              return (
-                <article
-                  key={item.id}
-                  className="group overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900/80 shadow-lg shadow-black/20 transition hover:-translate-y-1"
-                >
-                  <div className="relative aspect-square overflow-hidden bg-zinc-800">
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setSelectedItem(item)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          setSelectedItem(item);
-                        }
-                      }}
-                      className="h-full w-full cursor-pointer"
-                    >
-                      {item.image_url ? (
-                        <img src={item.image_url} alt={item.name} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
-                      ) : (
-                        <div className="flex h-full items-center justify-center bg-zinc-800 text-zinc-500">Image indisponible</div>
-                      )}
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4">
-                        <span className="rounded-full bg-red-600 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-white">
-                          Plus de détails
-                        </span>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      aria-label={`Edit price for ${item.name}`}
-                      title={`Edit price for ${item.name}`}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        openPriceEditor(item);
-                      }}
-                      className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-red-500/30 bg-red-600/90 text-white shadow-lg shadow-black/30 backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:bg-red-500 hover:shadow-red-600/20"
-                    >
-                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 20h9" />
-                        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                      </svg>
-                    </button>
-                  </div>
-
-                  <div className="space-y-4 p-5">
-                    <div>
-                      <h3 className="text-lg font-semibold text-white">{item.name}</h3>
-                      <p className="mt-1 text-sm text-zinc-400">{item.reference}</p>
-                    </div>
-
-                    <p className="text-sm text-zinc-500">{item.compatible_cars || 'Voitures compatibles'}</p>
-
-                    <div className="flex items-end justify-between gap-3">
-                      <div>
-                        <p className="text-sm text-zinc-400">Prix</p>
-                        <p className="text-2xl font-bold text-white">{item.sellingprice.toLocaleString('fr-FR')} MAD</p>
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 px-3 py-2 text-sm">
-                      {inStock ? (
-                        <p className="font-medium text-emerald-400">✓ En stock • {item.quantity} disponibles</p>
-                      ) : (
-                        <div className="space-y-2">
-                          <p className="font-medium text-rose-400">✗ Rupture</p>
-                          <button type="button" className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-red-300">
-                            M’avertir / نبّهني
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    <button
-                      type="button"
-                      disabled={!inStock}
-                      onClick={() =>
-                        addToCart({
-                          id: String(item.id),
-                          name: item.name,
-                          reference: item.reference,
-                          price: item.sellingprice,
-                          image_url: item.image_url ?? null,
-                          stock: item.quantity
-                        })
-                      }
-                      className={`w-full rounded-2xl px-4 py-3 font-semibold transition ${
-                        inStock ? 'bg-red-600 text-white hover:bg-red-700' : 'cursor-not-allowed bg-zinc-700 text-zinc-400'
-                      }`}
-                    >
-                      {inStock ? 'Add to cart' : 'Rupture'}
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
+            {filteredItems.map((item) => (
+              <ProductCard
+                key={item.id}
+                item={item as CatalogCardItem}
+                onSelect={(selected) => setSelectedItem(selected)}
+                onEditPrice={openPriceEditor}
+              />
+            ))}
           </div>
         )}
       </main>
+
+      <CartDrawer
+        open={isCartOpen ?? false}
+        onClose={onCloseCart ?? (() => undefined)}
+        onOpenInvoice={onOpenInvoice ?? (() => undefined)}
+        canEditPrices={canEditPrices}
+        catalogItems={filteredItems.map((item) => ({
+          id: String(item.id),
+          name: item.name,
+          image_url: item.image_url ?? null
+        }))}
+        onSelectProduct={scrollToProduct}
+      />
 
       <footer className="border-t border-zinc-800 bg-zinc-950/80 px-4 py-6 text-sm text-zinc-400 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -569,66 +506,24 @@ export default function PublicCatalog({ canEditPrices = false }: PublicCatalogPr
       ) : null}
 
       {selectedItem ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 py-6">
-          <div className="relative w-full max-w-2xl rounded-3xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl shadow-black/50">
-            <button
-              type="button"
-              onClick={() => setSelectedItem(null)}
-              className="absolute right-4 top-4 rounded-full border border-zinc-700 bg-zinc-800 px-3 py-1 text-sm text-zinc-300"
-            >
-              Fermer
-            </button>
-
-            <div className="grid gap-6 md:grid-cols-[1.1fr_0.9fr]">
-              <div className="overflow-hidden rounded-2xl bg-zinc-800">
-                {selectedItem.image_url ? (
-                  <img src={selectedItem.image_url} alt={selectedItem.name} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-72 items-center justify-center text-zinc-500">Image indisponible</div>
-                )}
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.3em] text-red-500">Pièce détachée</p>
-                  <h3 className="mt-2 text-2xl font-semibold text-white">{selectedItem.name}</h3>
-                  <p className="mt-2 text-sm text-zinc-400">Référence: {selectedItem.reference}</p>
-                </div>
-
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4 text-sm text-zinc-300">
-                  <p className="font-semibold text-white">Voitures compatibles</p>
-                  <p className="mt-2">{selectedItem.compatible_cars || 'Non spécifié'}</p>
-                </div>
-
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
-                  <p className="text-sm text-zinc-400">Prix</p>
-                  <p className="mt-2 text-3xl font-bold text-white">{selectedItem.sellingprice.toLocaleString('fr-FR')} MAD</p>
-                </div>
-
-                <button
-                  type="button"
-                  disabled={selectedItem.quantity <= 0}
-                  onClick={() => {
-                    addToCart({
-                      id: String(selectedItem.id),
-                      name: selectedItem.name,
-                      reference: selectedItem.reference,
-                      price: selectedItem.sellingprice,
-                      image_url: selectedItem.image_url ?? null,
-                      stock: selectedItem.quantity
-                    });
-                    setSelectedItem(null);
-                  }}
-                  className={`w-full rounded-2xl px-4 py-3 font-semibold transition ${
-                    selectedItem.quantity > 0 ? 'bg-red-600 text-white hover:bg-red-700' : 'cursor-not-allowed bg-zinc-700 text-zinc-400'
-                  }`}
-                >
-                  {selectedItem.quantity > 0 ? 'Ajouter au panier' : 'Rupture'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <AddToCartPanel
+          open={Boolean(selectedItem)}
+          item={selectedItem as AddToCartPanelItem}
+          onClose={() => setSelectedItem(null)}
+          onAddToCart={(item, quantity) => {
+            addToCart({
+              id: String(item.id),
+              name: item.name,
+              reference: item.reference,
+              price: item.sellingprice,
+              image_url: item.image_url ?? null,
+              stock: item.quantity,
+              quantity
+            });
+            setSelectedItem(null);
+            onOpenCart?.();
+          }}
+        />
       ) : null}
 
       {toastMessage ? (

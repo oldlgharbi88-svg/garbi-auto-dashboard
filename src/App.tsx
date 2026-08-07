@@ -8,18 +8,18 @@ import Inventory from './components/Inventory';
 import InvoicePrint from './components/InvoicePrint';
 import Reports from './components/Reports';
 import AccessModal from './components/AdminLogin';
-import CartDrawer from './components/CartDrawer';
 import PublicCatalog from './pages/PublicCatalog';
 import PrintInvoice from './pages/PrintInvoice';
 import PrintHistoricalInvoice from './pages/PrintHistoricalInvoice';
 import InvoiceHistory from './components/InvoiceHistory';
 import CustomersPage from './pages/Customers';
+import SupplierInvoices from './components/SupplierInvoices';
 import { useCart } from './context/CartContext';
 
-type ActiveView = 'pos' | 'inventory' | 'invoices' | 'invoice-history' | 'clients' | 'customers' | 'companies' | 'settings' | 'reports';
+type ActiveView = 'pos' | 'inventory' | 'supplier-invoices' | 'invoices' | 'invoice-history' | 'clients' | 'customers' | 'companies' | 'settings' | 'reports';
 type Role = 'none' | 'manager' | 'employee';
 
-const employeeAccessibleViews: ActiveView[] = ['invoices', 'invoice-history', 'clients', 'customers', 'companies'];
+const employeeAccessibleViews: ActiveView[] = ['invoices', 'invoice-history', 'clients', 'customers', 'companies', 'supplier-invoices'];
 
 const canAccess = (view: ActiveView, role: Role): boolean => {
   if (view === 'pos') {
@@ -59,6 +59,38 @@ export default function App() {
     return () => window.removeEventListener('popstate', handleLocationChange);
   }, []);
 
+  useEffect(() => {
+    const routeToView: Record<string, ActiveView> = {
+      '/admin': 'pos',
+      '/admin/': 'pos',
+      '/admin/inventory': 'inventory',
+      '/admin/supplier-invoices': 'supplier-invoices',
+      '/admin/invoices': 'invoices',
+      '/admin/invoice-history': 'invoice-history',
+      '/admin/clients': 'clients',
+      '/admin/customers': 'customers',
+      '/admin/companies': 'companies',
+      '/admin/settings': 'settings',
+      '/admin/reports': 'reports',
+      '/dashboard': 'pos',
+      '/dashboard/': 'pos',
+      '/dashboard/inventory': 'inventory',
+      '/dashboard/supplier-invoices': 'supplier-invoices',
+      '/dashboard/invoices': 'invoices',
+      '/dashboard/invoice-history': 'invoice-history',
+      '/dashboard/clients': 'clients',
+      '/dashboard/customers': 'customers',
+      '/dashboard/companies': 'companies',
+      '/dashboard/settings': 'settings',
+      '/dashboard/reports': 'reports'
+    };
+
+    const nextView = routeToView[currentRoute];
+    if (nextView) {
+      setActiveView(nextView);
+    }
+  }, [currentRoute]);
+
   const navigate = (path: string) => {
     window.history.pushState({}, '', path);
     setCurrentRoute(path);
@@ -77,6 +109,20 @@ export default function App() {
       return;
     }
 
+    const routeMap: Record<ActiveView, string> = {
+      pos: '/admin',
+      inventory: '/admin/inventory',
+      'supplier-invoices': '/admin/supplier-invoices',
+      invoices: '/admin/invoices',
+      'invoice-history': '/admin/invoice-history',
+      clients: '/admin/clients',
+      customers: '/admin/customers',
+      companies: '/admin/companies',
+      settings: '/admin/settings',
+      reports: '/admin/reports'
+    };
+
+    navigate(routeMap[view]);
     setActiveView(view);
   };
 
@@ -151,6 +197,7 @@ export default function App() {
             <main className="ml-72 flex-1 p-6">
               {activeView === 'pos' ? <POS /> : null}
               {activeView === 'inventory' ? <Inventory /> : null}
+              {activeView === 'supplier-invoices' ? <SupplierInvoices /> : null}
               {activeView === 'invoices' ? <InvoicePrint /> : null}
               {activeView === 'invoice-history' ? <InvoiceHistory /> : null}
               {activeView === 'clients' ? <ClientDirectory onNavigateToPos={() => setActiveView('pos')} /> : null}
@@ -188,18 +235,14 @@ export default function App() {
             </div>
           </header>
 
-          <PublicCatalog canEditPrices={currentRole === 'manager'} />
-
-          {showCartPanel ? (
-            <CartDrawer
-              open={showCartPanel}
-              onClose={() => setShowCartPanel(false)}
-              onOpenInvoice={() => {
-                navigate('/print-invoice');
-              }}
-              canEditPrices={currentRole === 'manager'}
-            />
-          ) : null}
+          <PublicCatalog
+            canEditPrices={currentRole === 'manager'}
+            isCartOpen={showCartPanel}
+            onToggleCart={() => setShowCartPanel((value) => !value)}
+            onCloseCart={() => setShowCartPanel(false)}
+            onOpenCart={() => setShowCartPanel(true)}
+            onOpenInvoice={() => navigate('/print-invoice')}
+          />
         </>
       )}
 

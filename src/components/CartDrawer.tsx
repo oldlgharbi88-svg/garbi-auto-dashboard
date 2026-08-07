@@ -1,23 +1,81 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import EditCartItemPriceModal from './EditCartItemPriceModal';
 import { useCart, type CartItem } from '../context/CartContext';
 import { parseCustomDiscountInput } from '../utils/discountInput';
 
 const presetDiscounts = [5, 10, 15, 20];
 
+interface CatalogThumbnail {
+  id: string;
+  name: string;
+  image_url?: string | null;
+}
+
 interface CartDrawerProps {
   open: boolean;
   onClose: () => void;
   onOpenInvoice: () => void;
   canEditPrices?: boolean;
+  catalogItems?: CatalogThumbnail[];
+  onSelectProduct?: (id: string) => void;
 }
 
-export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices = false }: CartDrawerProps) {
-  const { cartItems, cartCount, subtotal, discountType, discountValue, discountAmount, taxAmount, totalTTC, isDiscountSectionOpen, removeFromCart, updateQuantity, setDiscount, clearDiscount, showToast, setDiscountSectionOpen } = useCart();
+export default function CartDrawer({
+  open,
+  onClose,
+  onOpenInvoice,
+  canEditPrices = false,
+  catalogItems = [],
+  onSelectProduct
+}: CartDrawerProps) {
+  const {
+    cartItems,
+    cartCount,
+    subtotal,
+    discountType,
+    discountValue,
+    discountAmount,
+    taxAmount,
+    totalTTC,
+    isDiscountSectionOpen,
+    removeFromCart,
+    updateQuantity,
+    setDiscount,
+    clearDiscount,
+    showToast,
+    setDiscountSectionOpen
+  } = useCart();
   const [editingItem, setEditingItem] = useState<CartItem | null>(null);
   const [customDiscountInput, setCustomDiscountInput] = useState('');
   const [discountError, setDiscountError] = useState('');
   const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setIsMinimized(false);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        if (isMinimized) {
+          setIsMinimized(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, isMinimized, onClose]);
 
   const manualDiscountTotal = useMemo(
     () =>
@@ -100,225 +158,306 @@ export default function CartDrawer({ open, onClose, onOpenInvoice, canEditPrices
 
   const formattedDiscountLabel = discountType === 'percentage' ? `${discountValue}%` : discountType === 'fixed' ? `${discountValue.toFixed(0)} MAD` : 'Aucune';
   const htAfterRemise = Math.max(subtotal - discountAmount, 0);
+  const hasThumbnails = catalogItems.length > 0;
 
   if (!open) {
     return null;
   }
 
   return (
-    <div className="fixed inset-y-0 right-0 z-40 flex h-screen w-full max-w-md flex-col overflow-hidden border-l border-zinc-800 bg-zinc-950/95 shadow-2xl shadow-black/50 backdrop-blur-xl">
-      <div className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-zinc-800 px-4 py-4 sm:px-5">
-        <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-white">Votre panier</h2>
-          <p className="text-xs text-zinc-400">{cartCount} article{cartCount > 1 ? 's' : ''}</p>
+    <>
+      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} aria-hidden="true" />
+
+      {isMinimized ? (
+        <div className="fixed bottom-4 right-4 z-50 flex w-[min(92vw,420px)] items-center justify-between gap-3 rounded-full border border-zinc-800 bg-zinc-950/95 px-4 py-3 shadow-2xl shadow-black/50">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-white">Panier ({cartCount})</p>
+            <p className="truncate text-xs text-zinc-400">Total: {totalTTC.toLocaleString('fr-FR')} MAD</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsMinimized(false)}
+              className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500"
+            >
+              Ouvrir
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-300 transition hover:bg-zinc-800"
+            >
+              Fermer
+            </button>
+          </div>
         </div>
-        <button type="button" onClick={onClose} className="rounded-full border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 transition hover:bg-zinc-800 hover:text-white">
-          Fermer
-        </button>
-      </div>
-
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-5">
-        {cartItems.length === 0 ? (
-          <div className="flex h-full min-h-[220px] flex-col items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900/70 px-4 text-center text-zinc-400">
-            <p className="text-lg font-semibold text-white">Votre panier est vide</p>
-            <p className="mt-2 text-sm">Ajoutez des produits pour commencer</p>
+      ) : (
+        <div className="fixed top-0 right-0 z-50 flex h-full w-full sm:w-[420px] flex-col overflow-hidden border-l border-zinc-800 bg-zinc-950/95 shadow-2xl shadow-black/50 backdrop-blur-xl">
+          <div className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-zinc-800 px-4 py-4 sm:px-5">
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-white">Votre panier</h2>
+              <p className="text-xs text-zinc-400">{cartCount} article{cartCount > 1 ? 's' : ''}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsMinimized(true)}
+                className="rounded-full border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 transition hover:bg-zinc-800 hover:text-white"
+              >
+                Réduire
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-full border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 transition hover:bg-zinc-800 hover:text-white"
+              >
+                Fermer
+              </button>
+            </div>
           </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {cartItems.map((item) => (
-              <div key={item.id} className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-zinc-800 bg-zinc-800/60 sm:h-20 sm:w-20">
-                    {item.image_url ? (
-                      <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
-                    ) : (
-                      <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-zinc-400">GA</span>
-                    )}
+
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-5">
+            {hasThumbnails ? (
+              <div className="mb-4 rounded-3xl border border-zinc-800 bg-zinc-900/80 p-3">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-white">Voir le catalogue</p>
+                    <p className="text-xs text-zinc-400">Cliquez sur un produit pour revenir au catalogue.</p>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="line-clamp-2 break-words text-sm font-semibold text-white sm:text-base" title={item.name}>{item.name}</p>
-                        <p className="mt-1 break-words text-xs text-zinc-400">{item.reference}</p>
-                      </div>
-                      <button type="button" onClick={() => removeFromCart(item.id)} className="flex h-8 flex-shrink-0 items-center justify-center rounded-full border border-red-500/30 px-2.5 text-[11px] font-medium text-red-400 transition hover:bg-red-500/10 sm:text-xs">
-                        Supprimer
-                      </button>
-                    </div>
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-1 rounded-full border border-zinc-700 bg-zinc-950/60 p-1">
-                        <button
-                          type="button"
-                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-sm font-semibold text-white transition hover:bg-zinc-700"
-                        >
-                          -
-                        </button>
-                        <span className="min-w-6 text-center text-sm font-semibold text-white">{item.quantity}</span>
-                        <button
-                          type="button"
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-sm font-semibold text-white transition hover:bg-zinc-700"
-                        >
-                          +
-                        </button>
-                      </div>
-                      <div className="w-24 text-right sm:w-28">
-                        <div className="flex flex-col items-end gap-1">
-                          <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Prix</p>
-                          <div className="flex flex-wrap items-center justify-end gap-1">
-                            <p className={`text-sm font-semibold whitespace-nowrap ${item.price_modified ? 'text-amber-300' : 'text-white'}`} aria-label={`Prix ${item.price.toLocaleString('fr-FR')} Moroccan Dirhams`}>
-                              {item.price.toLocaleString('fr-FR')} MAD
-                            </p>
-                            {item.price_modified ? (
-                              <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">Modifié</span>
-                            ) : null}
-                          </div>
-                          {canEditPrices ? (
-                            <button
-                              type="button"
-                              aria-label="Modifier le prix"
-                              title="Modifier le prix / تعديل الثمن"
-                              onClick={() => setEditingItem(item)}
-                              className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
-                                item.price_modified ? 'bg-amber-500/25 text-amber-300 ring-1 ring-amber-400/30' : 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
-                              }`}
-                            >
-                              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M12 20h9" />
-                                <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                              </svg>
-                            </button>
-                          ) : null}
-                        </div>
-                        <p className="mt-1 text-[11px] text-zinc-400" aria-label={`Total ligne ${item.name}: ${(item.price * item.quantity).toLocaleString('fr-FR')} Moroccan Dirhams`}>Total: {(item.price * item.quantity).toLocaleString('fr-FR')} MAD</p>
-                        {item.stock <= 0 ? (
-                          <p className="mt-1 text-[11px] font-semibold text-rose-400">⚠️ Rupture</p>
-                        ) : null}
-                        {item.price_modified ? (
-                          <div className="mt-1 flex flex-wrap items-center justify-end gap-1 text-[10px] text-zinc-400">
-                            <span className="line-through">{(item.original_price ?? item.price).toLocaleString('fr-FR')} MAD</span>
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onSelectProduct?.(catalogItems[0].id)}
+                    className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition hover:border-red-500 hover:text-white"
+                  >
+                    Voir tout
+                  </button>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {cartItems.length > 0 ? (
-        <div className="flex-shrink-0 border-t border-zinc-800 bg-zinc-900/80 px-4 py-4 sm:px-5">
-          <div className="flex items-center justify-between text-xs">
-            <span>Sous-total</span>
-            <span aria-label={`Sous-total ${subtotal.toLocaleString('fr-FR')} Moroccan Dirhams`}>{subtotal.toLocaleString('fr-FR')} MAD</span>
-          </div>
-          {discountAmount > 0 ? (
-            <div className="mt-2 flex items-center justify-between text-xs text-emerald-400">
-              <span>Remise ({formattedDiscountLabel})</span>
-              <span aria-label={`Remise ${discountAmount.toLocaleString('fr-FR')} Moroccan Dirhams`}>-{discountAmount.toLocaleString('fr-FR')} MAD</span>
-            </div>
-          ) : null}
-          {manualDiscountTotal > 0 ? (
-            <div className="mt-2 flex items-center justify-between text-xs text-amber-400">
-              <span>Réduction produit</span>
-              <span>-{manualDiscountTotal.toLocaleString('fr-FR')} MAD</span>
-            </div>
-          ) : null}
-          <div className="mt-2 flex items-center justify-between text-xs">
-            <span>Montant HT</span>
-            <span>{htAfterRemise.toLocaleString('fr-FR')} MAD</span>
-          </div>
-          <div className="mt-2 flex items-center justify-between text-xs">
-            <span>TVA (20%)</span>
-            <span>{taxAmount.toLocaleString('fr-FR')} MAD</span>
-          </div>
-          <div className="mt-3 border-t border-zinc-800 pt-3" />
-          <div className="flex items-center justify-between text-base font-semibold text-white">
-            <span>Total TTC</span>
-            <span aria-label={`Total: ${totalTTC.toLocaleString('fr-FR')} Moroccan Dirhams`}>{totalTTC.toLocaleString('fr-FR')} MAD</span>
-          </div>
-          <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950/70 p-2">
-            <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">Remise</p>
-            {discountType !== 'none' ? (
-              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[11px] text-emerald-300">
-                <span>Remise active: {formattedDiscountLabel}</span>
-                <div className="flex items-center gap-2">
-                  <button type="button" onClick={() => setDiscountSectionOpen(true)} className="font-medium text-emerald-200 transition hover:text-white">
-                    Modifier
-                  </button>
-                  <button type="button" onClick={handleClearDiscount} className="font-medium text-red-400 transition hover:text-red-300">
-                    Effacer
-                  </button>
+                <div className="grid grid-cols-3 gap-3">
+                  {catalogItems.slice(0, 6).map((thumbnail) => (
+                    <button
+                      type="button"
+                      key={thumbnail.id}
+                      onClick={() => {
+                        onSelectProduct?.(thumbnail.id);
+                        onClose();
+                      }}
+                      className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/70 text-left transition hover:border-red-500"
+                    >
+                      {thumbnail.image_url ? (
+                        <img src={thumbnail.image_url} alt={thumbnail.name} className="h-24 w-full object-cover" />
+                      ) : (
+                        <div className="flex h-24 items-center justify-center bg-zinc-900 text-zinc-500">No image</div>
+                      )}
+                      <div className="px-2 py-2 text-xs text-zinc-300 line-clamp-2">{thumbnail.name}</div>
+                    </button>
+                  ))}
                 </div>
               </div>
             ) : null}
-            <div className={`overflow-hidden transition-all duration-300 ${isDiscountSectionOpen ? 'mt-2 max-h-64 opacity-100' : 'mt-0 max-h-0 opacity-0'}`}>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {presetDiscounts.map((value) => (
-                  <button key={value} type="button" onClick={() => handlePresetDiscount(value)} className={`min-h-10 rounded-full px-2.5 py-2 text-sm font-medium transition ${discountType === 'percentage' && discountValue === value ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}>
-                    {value}%
-                  </button>
+
+            {cartItems.length === 0 ? (
+              <div className="flex h-full min-h-[220px] flex-col items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900/70 px-4 text-center text-zinc-400">
+                <p className="text-lg font-semibold text-white">Votre panier est vide</p>
+                <p className="mt-2 text-sm">Ajoutez des produits pour commencer</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {cartItems.map((item) => (
+                  <div key={item.id} className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-zinc-800 bg-zinc-800/60 sm:h-20 sm:w-20">
+                        {item.image_url ? (
+                          <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-zinc-400">GA</span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="line-clamp-2 break-words text-sm font-semibold text-white sm:text-base" title={item.name}>{item.name}</p>
+                            <p className="mt-1 break-words text-xs text-zinc-400">{item.reference}</p>
+                          </div>
+                          <button type="button" onClick={() => removeFromCart(item.id)} className="flex h-8 flex-shrink-0 items-center justify-center rounded-full border border-red-500/30 px-2.5 text-[11px] font-medium text-red-400 transition hover:bg-red-500/10 sm:text-xs">
+                            Supprimer
+                          </button>
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-1 rounded-full border border-zinc-700 bg-zinc-950/60 p-1">
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                              className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-sm font-semibold text-white transition hover:bg-zinc-700"
+                            >
+                              -
+                            </button>
+                            <span className="min-w-6 text-center text-sm font-semibold text-white">{item.quantity}</span>
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                              className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-sm font-semibold text-white transition hover:bg-zinc-700"
+                            >
+                              +
+                            </button>
+                          </div>
+                          <div className="w-24 text-right sm:w-28">
+                            <div className="flex flex-col items-end gap-1">
+                              <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Prix</p>
+                              <div className="flex flex-wrap items-center justify-end gap-1">
+                                <p className={`text-sm font-semibold whitespace-nowrap ${item.price_modified ? 'text-amber-300' : 'text-white'}`} aria-label={`Prix ${item.price.toLocaleString('fr-FR')} Moroccan Dirhams`}>
+                                  {item.price.toLocaleString('fr-FR')} MAD
+                                </p>
+                                {item.price_modified ? (
+                                  <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">Modifié</span>
+                                ) : null}
+                              </div>
+                              {canEditPrices ? (
+                                <button
+                                  type="button"
+                                  aria-label="Modifier le prix"
+                                  title="Modifier le prix / تعديل الثمن"
+                                  onClick={() => setEditingItem(item)}
+                                  className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+                                    item.price_modified ? 'bg-amber-500/25 text-amber-300 ring-1 ring-amber-400/30' : 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
+                                  }`}
+                                >
+                                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M12 20h9" />
+                                    <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                                  </svg>
+                                </button>
+                              ) : null}
+                            </div>
+                            <p className="mt-1 text-[11px] text-zinc-400" aria-label={`Total ligne ${item.name}: ${(item.price * item.quantity).toLocaleString('fr-FR')} Moroccan Dirhams`}>Total: {(item.price * item.quantity).toLocaleString('fr-FR')} MAD</p>
+                            {item.stock <= 0 ? (
+                              <p className="mt-1 text-[11px] font-semibold text-rose-400">⚠️ Rupture</p>
+                            ) : null}
+                            {item.price_modified ? (
+                              <div className="mt-1 flex flex-wrap items-center justify-end gap-1 text-[10px] text-zinc-400">
+                                <span className="line-through">{(item.original_price ?? item.price).toLocaleString('fr-FR')} MAD</span>
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 ))}
               </div>
-              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                <input
-                  value={customDiscountInput}
-                  onChange={(event) => {
-                    setCustomDiscountInput(event.target.value);
-                    if (discountError) {
-                      setDiscountError('');
-                    }
-                  }}
-                  placeholder="5% / 5,5% / 50 MAD"
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-sm text-white outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={handleApplyCustomDiscount}
-                  disabled={!isDiscountInputValid || isApplyingDiscount}
-                  className="w-full rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400 sm:w-auto"
-                >
-                  {isApplyingDiscount ? 'Application…' : 'Appliquer'}
-                </button>
-              </div>
-              {discountError ? <p className="mt-2 text-[11px] text-rose-400">{discountError}</p> : null}
-            </div>
+            )}
           </div>
+
+          {cartItems.length > 0 ? (
+            <div className="flex-shrink-0 border-t border-zinc-800 bg-zinc-900/80 px-4 py-4 sm:px-5">
+              <div className="flex items-center justify-between text-xs">
+                <span>Sous-total</span>
+                <span aria-label={`Sous-total ${subtotal.toLocaleString('fr-FR')} Moroccan Dirhams`}>{subtotal.toLocaleString('fr-FR')} MAD</span>
+              </div>
+              {discountAmount > 0 ? (
+                <div className="mt-2 flex items-center justify-between text-xs text-emerald-400">
+                  <span>Remise ({formattedDiscountLabel})</span>
+                  <span aria-label={`Remise ${discountAmount.toLocaleString('fr-FR')} Moroccan Dirhams`}>-{discountAmount.toLocaleString('fr-FR')} MAD</span>
+                </div>
+              ) : null}
+              {manualDiscountTotal > 0 ? (
+                <div className="mt-2 flex items-center justify-between text-xs text-amber-400">
+                  <span>Réduction produit</span>
+                  <span>-{manualDiscountTotal.toLocaleString('fr-FR')} MAD</span>
+                </div>
+              ) : null}
+              <div className="mt-2 flex items-center justify-between text-xs">
+                <span>Montant HT</span>
+                <span>{htAfterRemise.toLocaleString('fr-FR')} MAD</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-xs">
+                <span>TVA (20%)</span>
+                <span>{taxAmount.toLocaleString('fr-FR')} MAD</span>
+              </div>
+              <div className="mt-3 border-t border-zinc-800 pt-3" />
+              <div className="flex items-center justify-between text-base font-semibold text-white">
+                <span>Total TTC</span>
+                <span aria-label={`Total: ${totalTTC.toLocaleString('fr-FR')} Moroccan Dirhams`}>{totalTTC.toLocaleString('fr-FR')} MAD</span>
+              </div>
+              <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950/70 p-2">
+                <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">Remise</p>
+                {discountType !== 'none' ? (
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[11px] text-emerald-300">
+                    <span>Remise active: {formattedDiscountLabel}</span>
+                    <div className="flex items-center gap-2">
+                      <button type="button" onClick={() => setDiscountSectionOpen(true)} className="font-medium text-emerald-200 transition hover:text-white">
+                        Modifier
+                      </button>
+                      <button type="button" onClick={handleClearDiscount} className="font-medium text-red-400 transition hover:text-red-300">
+                        Effacer
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+                <div className={`overflow-hidden transition-all duration-300 ${isDiscountSectionOpen ? 'mt-2 max-h-64 opacity-100' : 'mt-0 max-h-0 opacity-0'}`}>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {presetDiscounts.map((value) => (
+                      <button key={value} type="button" onClick={() => handlePresetDiscount(value)} className={`min-h-10 rounded-full px-2.5 py-2 text-sm font-medium transition ${discountType === 'percentage' && discountValue === value ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}>
+                        {value}%
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                    <input
+                      value={customDiscountInput}
+                      onChange={(event) => {
+                        setCustomDiscountInput(event.target.value);
+                        if (discountError) {
+                          setDiscountError('');
+                        }
+                      }}
+                      placeholder="5% / 5,5% / 50 MAD"
+                      className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-sm text-white outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyCustomDiscount}
+                      disabled={!isDiscountInputValid || isApplyingDiscount}
+                      className="w-full rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400 sm:w-auto"
+                    >
+                      {isApplyingDiscount ? 'Application…' : 'Appliquer'}
+                    </button>
+                  </div>
+                  {discountError ? <p className="mt-2 text-[11px] text-rose-400">{discountError}</p> : null}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="sticky bottom-0 z-10 mt-3 flex flex-col gap-2 border-t border-zinc-800 bg-zinc-950/95 pt-3">
+            <button
+              type="button"
+              onClick={onOpenInvoice}
+              disabled={cartItems.length === 0}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-red-600 px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-700 disabled:text-zinc-500 disabled:hover:bg-transparent"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current stroke-2" aria-hidden="true">
+                <path d="M8 3h8" />
+                <path d="M7 7h10" />
+                <path d="M6 8h12a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2v3H8v-3H6a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2Z" />
+                <path d="M8 15h8" />
+              </svg>
+              <span>🖨️ طباعة الفاتورة / Imprimer la facture</span>
+            </button>
+            <button type="button" disabled={cartItems.length === 0} className="w-full rounded-2xl bg-red-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-red-500 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400" aria-label={`Commander pour ${totalTTC.toLocaleString('fr-FR')} Moroccan Dirhams`}>
+              Commander • {totalTTC.toLocaleString('fr-FR')} MAD
+            </button>
+          </div>
+
+          {editingItem ? (
+            <EditCartItemPriceModal
+              item={editingItem}
+              isOpen={Boolean(editingItem)}
+              canEditProductPrices={canEditPrices}
+              onClose={() => setEditingItem(null)}
+            />
+          ) : null}
         </div>
-      ) : null}
-
-      <div className="sticky bottom-0 z-10 mt-3 flex flex-col gap-2 border-t border-zinc-800 bg-zinc-950/95 pt-3">
-        <button
-          type="button"
-          onClick={onOpenInvoice}
-          disabled={cartItems.length === 0}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-red-600 px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-700 disabled:text-zinc-500 disabled:hover:bg-transparent"
-        >
-          <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current stroke-2" aria-hidden="true">
-            <path d="M8 3h8" />
-            <path d="M7 7h10" />
-            <path d="M6 8h12a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2v3H8v-3H6a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2Z" />
-            <path d="M8 15h8" />
-          </svg>
-          <span>🖨️ طباعة الفاتورة / Imprimer la facture</span>
-        </button>
-        <button type="button" disabled={cartItems.length === 0} className="w-full rounded-2xl bg-red-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-red-500 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400" aria-label={`Commander pour ${totalTTC.toLocaleString('fr-FR')} Moroccan Dirhams`}>
-          Commander • {totalTTC.toLocaleString('fr-FR')} MAD
-        </button>
-      </div>
-
-      {editingItem ? (
-        <EditCartItemPriceModal
-          item={editingItem}
-          isOpen={Boolean(editingItem)}
-          canEditProductPrices={canEditPrices}
-          onClose={() => setEditingItem(null)}
-        />
-      ) : null}
-    </div>
+      )}
+    </>
   );
 }
