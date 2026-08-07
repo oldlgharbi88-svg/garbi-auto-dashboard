@@ -14,12 +14,13 @@ import PrintHistoricalInvoice from './pages/PrintHistoricalInvoice';
 import InvoiceHistory from './components/InvoiceHistory';
 import CustomersPage from './pages/Customers';
 import SupplierInvoices from './components/SupplierInvoices';
+import ChecksManagement from './pages/ChecksManagement';
 import { useCart } from './context/CartContext';
 
-type ActiveView = 'pos' | 'inventory' | 'supplier-invoices' | 'invoices' | 'invoice-history' | 'clients' | 'customers' | 'companies' | 'settings' | 'reports';
+type ActiveView = 'pos' | 'inventory' | 'supplier-invoices' | 'invoices' | 'invoice-history' | 'clients' | 'customers' | 'companies' | 'settings' | 'reports' | 'checks';
 type Role = 'none' | 'manager' | 'employee';
 
-const employeeAccessibleViews: ActiveView[] = ['invoices', 'invoice-history', 'clients', 'customers', 'companies', 'supplier-invoices'];
+const employeeAccessibleViews: ActiveView[] = ['invoices', 'invoice-history', 'clients', 'customers', 'companies', 'supplier-invoices', 'checks'];
 
 const canAccess = (view: ActiveView, role: Role): boolean => {
   if (view === 'pos') {
@@ -82,7 +83,9 @@ export default function App() {
       '/dashboard/customers': 'customers',
       '/dashboard/companies': 'companies',
       '/dashboard/settings': 'settings',
-      '/dashboard/reports': 'reports'
+      '/dashboard/reports': 'reports',
+      '/admin/checks': 'checks',
+      '/dashboard/checks': 'checks'
     };
 
     const nextView = routeToView[currentRoute];
@@ -119,7 +122,8 @@ export default function App() {
       customers: '/admin/customers',
       companies: '/admin/companies',
       settings: '/admin/settings',
-      reports: '/admin/reports'
+      reports: '/admin/reports',
+      checks: '/admin/checks'
     };
 
     navigate(routeMap[view]);
@@ -205,6 +209,7 @@ export default function App() {
               {activeView === 'companies' ? <CompaniesPage /> : null}
               {activeView === 'settings' ? <Settings /> : null}
               {activeView === 'reports' ? <Reports /> : null}
+              {activeView === 'checks' ? <ChecksManagement /> : null}
             </main>
           </div>
         </>

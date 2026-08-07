@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { company } from '../config/company';
 
-type ActiveView = 'pos' | 'inventory' | 'supplier-invoices' | 'invoices' | 'invoice-history' | 'clients' | 'customers' | 'companies' | 'settings' | 'reports';
+type ActiveView = 'pos' | 'inventory' | 'supplier-invoices' | 'invoices' | 'invoice-history' | 'clients' | 'customers' | 'companies' | 'settings' | 'reports' | 'checks';
 type Role = 'manager' | 'employee';
 
 interface AccessModalProps {
@@ -21,7 +21,8 @@ const viewLabels: Record<ActiveView, string> = {
   customers: 'Clients',
   companies: 'Societes',
   settings: 'Settings',
-  reports: 'Reports'
+  reports: 'Reports',
+  checks: 'Checks Management'
 };
 
 export default function AccessModal({ pendingView, onSuccess, onCancel, error }: AccessModalProps) {
